@@ -1,0 +1,2707 @@
+<!DOCTYPE html>
+<html lang="fr" data-mode="night">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neoplex</title>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600&family=Marcellus&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Plein écran : le diorama au centre, un chrome discret en haut, la feuille de commande en bas. */
+  --sky-top:#0c2430;
+  --sky-bot:#1d4a50;
+  --ink:#f4ece1;
+  --ink-soft:rgba(244,236,225,.68);
+  --panel:rgba(13,34,42,.8);
+  --panel-line:rgba(244,236,225,.16);
+  --track:rgba(244,236,225,.16);
+  --halo:rgba(4,16,22,.75);
+  --inv:#10262d;
+  --accent:#ff8f76;
+  --ok:#8fe3b0;
+  --warm:#ffd36b;
+  --font-display:"Marcellus","Palatino Linotype",Palatino,Georgia,serif;
+  --font-body:"Jost","Avenir Next","Segoe UI",system-ui,sans-serif;
+  color-scheme:dark;
+}
+:root[data-mode="day"]{
+  --sky-top:#bfe6dc;
+  --sky-bot:#f6dcc6;
+  --ink:#1d3a40;
+  --ink-soft:rgba(29,58,64,.7);
+  --panel:rgba(255,250,244,.84);
+  --panel-line:rgba(29,58,64,.14);
+  --track:rgba(29,58,64,.14);
+  --halo:rgba(255,250,244,.9);
+  --inv:#fff8f0;
+  --accent:#d95a44;
+  --ok:#2c9a68;
+  --warm:#c98a00;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;overscroll-behavior:none}
+body{
+  background:linear-gradient(var(--sky-top),var(--sky-bot));
+  color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.35;
+  overflow:hidden;position:relative;-webkit-font-smoothing:antialiased;
+  -webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;
+}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#gl:active{cursor:grabbing}
+#gl:focus-visible{outline-offset:-4px}
+#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden;font-size:10.5px;transition:opacity .25s}
+.room{
+  position:absolute;left:0;top:0;font-family:var(--font-display);font-size:1em;letter-spacing:.18em;line-height:1.3;text-align:center;transition:opacity .25s;
+  text-transform:uppercase;color:var(--ink);opacity:.86;white-space:nowrap;will-change:transform;
+  text-shadow:0 0 6px var(--halo),0 1px 10px var(--halo);
+}
+#siren{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .3s;box-shadow:inset 0 0 90px 12px rgba(255,84,64,.6)}
+body.alarm #siren{opacity:1;animation:throb 1.1s ease-in-out infinite}
+@keyframes throb{50%{opacity:.4}}
+
+.top{position:absolute;left:0;right:0;top:0;padding:14px 16px 0;display:grid;grid-template-columns:1fr auto;gap:10px 12px;pointer-events:none}
+.tools{display:flex;gap:8px;pointer-events:auto}
+.ib{width:40px;height:40px;border-radius:50%;border:1px solid var(--panel-line);background:var(--panel);display:grid;place-items:center;padding:0;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.chips{grid-column:1/-1;display:flex;gap:5px;flex-wrap:wrap}
+.chip{display:flex;align-items:center;gap:6px;margin:0;padding:5px 9px 5px 7px;border-radius:999px;background:var(--panel);border:1px solid var(--panel-line);font-size:12px;line-height:1.35;font-variant-numeric:tabular-nums;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.chip i{width:7px;height:7px;border-radius:50%;background:var(--ink-soft);flex:none}
+.chip.on i{background:var(--warm)}
+button.chip{pointer-events:auto;border-color:var(--ink-soft)}
+button.chip svg{flex:none;color:var(--ink-soft)}
+button.chip::after{content:"›";color:var(--ink-soft);margin-left:-1px}
+button.chip.armed svg{color:var(--ok)}
+button.chip.alert{background:var(--accent);border-color:transparent;color:#22110d;animation:throb 1.1s ease-in-out infinite}
+button.chip.alert svg,button.chip.alert::after{color:#22110d}
+
+.dock{position:absolute;left:0;right:0;bottom:0;padding:0 16px 14px;display:flex;flex-direction:column;align-items:center;gap:9px;pointer-events:none;transition:opacity .25s}
+.dock.away{opacity:0}
+.dock.away .scenes{pointer-events:none}
+.hint{margin:0;font-size:11.5px;letter-spacing:.06em;color:var(--ink-soft);text-align:center;text-shadow:0 0 8px var(--halo);transition:opacity .6s}
+.hint.gone{opacity:0}
+.scenes{display:flex;gap:8px;pointer-events:auto;flex-wrap:wrap;justify-content:center}
+.pill{padding:9px 16px;border-radius:999px;border:1px solid var(--panel-line);background:var(--panel);font-size:13.5px;letter-spacing:.03em;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.pill[aria-pressed="true"]{background:var(--ink);color:var(--inv);border-color:transparent}
+
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;margin:0 auto;max-width:460px;max-height:74%;overflow:auto;
+  background:var(--panel);border:1px solid var(--panel-line);border-bottom:0;border-radius:24px 24px 0 0;
+  padding:8px 18px 18px;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  transform:translateY(105%);visibility:hidden;transition:transform .34s cubic-bezier(.2,.8,.2,1),visibility 0s .34s;
+  user-select:none;
+}
+.sheet.open{transform:none;visibility:visible;transition:transform .34s cubic-bezier(.2,.8,.2,1)}
+.sheet.is-list{max-height:58%}
+.sheet::before{content:"";display:block;width:38px;height:4px;border-radius:4px;background:var(--panel-line);margin:0 auto 10px}
+@media (min-width:760px){
+  .sheet{left:auto;right:20px;bottom:20px;width:372px;border-radius:24px;border-bottom:1px solid var(--panel-line);transform:translateY(calc(100% + 40px))}
+  .sheet.is-list{max-height:74%}
+  .sheet.is-wx{left:0;right:0;margin:0 auto;width:min(560px,94vw);max-width:none;max-height:88vh}
+  .sheet::before{display:none}
+  .sheet{padding-top:16px}
+  .top{padding:20px 24px 0}
+}
+.shd{display:flex;align-items:center;gap:12px}
+.badge{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;flex:none;background:var(--track);color:var(--c,var(--ink))}
+.ttl{flex:1;min-width:0}
+.ttl h2{font-family:var(--font-display);font-weight:400;font-size:18px;letter-spacing:.06em;margin:0;line-height:1.15}
+.ttl p{margin:3px 0 0;font-size:13px;color:var(--ink-soft)}
+.x{width:34px;height:34px;border-radius:50%;border:1px solid var(--panel-line);background:transparent;font-size:19px;line-height:1;padding:0 0 2px;flex:none}
+.sw{width:54px;height:32px;border-radius:32px;border:1px solid var(--panel-line);background:var(--track);position:relative;flex:none;padding:0;transition:background .2s}
+.sw::after{content:"";position:absolute;left:3px;top:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.sw[aria-checked="true"]{background:var(--accent);border-color:transparent}
+.sw[aria-checked="true"]::after{transform:translateX(22px)}
+.field{margin-top:16px}
+.lab{display:flex;justify-content:space-between;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:6px}
+.lab output{font-variant-numeric:tabular-nums;color:var(--ink);letter-spacing:.04em}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:30px;background:transparent;margin:0;cursor:pointer;touch-action:pan-y}
+input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:8px;background:linear-gradient(90deg,var(--accent) var(--p,0%),var(--track) var(--p,0%))}
+input[type=range]::-moz-range-track{height:8px;border-radius:8px;background:linear-gradient(90deg,var(--accent) var(--p,0%),var(--track) var(--p,0%))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;border-radius:50%;background:#fff;border:0;margin-top:-8px;box-shadow:0 1px 6px rgba(0,0,0,.35)}
+input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:#fff;border:0;box-shadow:0 1px 6px rgba(0,0,0,.35)}
+input.hue::-webkit-slider-runnable-track{background:linear-gradient(90deg,#ff5a5a,#ffd84d,#62e36a,#4fe0d6,#5a8cff,#c56bff,#ff5a8f)}
+input.hue::-moz-range-track{background:linear-gradient(90deg,#ff5a5a,#ffd84d,#62e36a,#4fe0d6,#5a8cff,#c56bff,#ff5a8f)}
+input.ct::-webkit-slider-runnable-track{background:linear-gradient(90deg,#ffb872,#fff1e0,#dce8ff)}
+input.ct::-moz-range-track{background:linear-gradient(90deg,#ffb872,#fff1e0,#dce8ff)}
+.sws{display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between;margin-bottom:8px}
+.swt{width:32px;height:32px;border-radius:50%;border:2px solid transparent;padding:0;background:var(--c);box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}
+.swt[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 2px var(--inv)}
+.opts{display:flex;gap:8px;flex-wrap:wrap}
+.opt{padding:8px 14px;border-radius:999px;border:1px solid var(--panel-line);background:transparent;font-size:13.5px}
+.opt[aria-pressed="true"]{background:var(--ink);color:var(--inv);border-color:transparent}
+.btn{height:46px;border-radius:15px;padding:0 18px;border:1px solid var(--panel-line);background:transparent;font-weight:500;width:100%;margin-top:14px}
+.btn.pri{background:var(--accent);color:#22110d;border-color:transparent}
+.big{margin-top:16px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.big strong{font-family:var(--font-display);font-weight:400;font-size:30px;letter-spacing:.04em;font-variant-numeric:tabular-nums}
+.big span{color:var(--ink-soft);font-size:13.5px}
+.note{margin:8px 0 0;font-size:13.5px;color:var(--ink-soft)}
+.note b{color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums}
+.thermo{margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.rb{width:50px;height:50px;border-radius:50%;border:1px solid var(--panel-line);background:transparent;font-size:24px;line-height:1;padding:0 0 3px}
+.tval{text-align:center}
+.tval strong{display:block;font-family:var(--font-display);font-weight:400;font-size:38px;line-height:1;font-variant-numeric:tabular-nums}
+.tval span{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft)}
+.wires{margin-top:16px;padding-top:12px;border-top:1px solid var(--panel-line);display:grid;gap:5px}
+.wire{display:flex;justify-content:space-between;gap:14px;font-size:11.5px;color:var(--ink-soft);margin:0}
+.wire code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;color:var(--ink);overflow-wrap:anywhere;text-align:right;user-select:text;-webkit-user-select:text}
+.list{list-style:none;margin:4px 0 0;padding:0;display:grid;gap:6px}
+.grp{margin:12px 2px 0;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft)}
+.li{display:flex;align-items:center;gap:8px}
+.lib{flex:1;min-width:0;display:flex;align-items:center;gap:12px;text-align:left;background:transparent;border:1px solid var(--panel-line);border-radius:16px;padding:8px 12px 8px 8px}
+.lib .badge{width:36px;height:36px;border-radius:12px}
+.lib .txt{display:block;flex:1;min-width:0}
+.lib b{display:block;font-weight:500;font-size:14.5px}
+.lib small{display:block;font-size:12.5px;color:var(--ink-soft)}
+.tag{flex:none;padding:2px 8px;border-radius:999px;border:1px dashed var(--ink-soft);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft)}
+.chip.ok i{background:var(--ok)}
+.chip.ko i{background:var(--accent)}
+.dlg{position:absolute;inset:0;z-index:5;display:grid;place-items:center;padding:20px;background:rgba(4,16,22,.55)}
+.dlg[hidden]{display:none}
+.dlg form{width:100%;max-width:360px;background:var(--panel);border:1px solid var(--panel-line);border-radius:22px;padding:18px;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.dlg h2{font-family:var(--font-display);font-weight:400;font-size:18px;letter-spacing:.06em;margin:0;line-height:1.15}
+.dlg label{display:block;margin-top:14px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft)}
+.dlg input[type=url],.dlg input[type=password]{display:block;width:100%;margin-top:6px;height:42px;border-radius:12px;border:1px solid var(--panel-line);background:var(--track);color:var(--ink);font:inherit;padding:0 12px;user-select:text;-webkit-user-select:text}
+.dlg label.chk,.field label.chk{display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:13.5px;color:var(--ink)}
+.dlg .err{margin:10px 0 0;min-height:1em;font-size:13px;color:var(--accent);overflow-wrap:anywhere}
+.dlg .row{display:flex;gap:8px}
+.dlg .lnk{background:none;border:0;padding:8px 0 0;font-size:12.5px;color:var(--ink-soft);text-decoration:underline}
+.dlg .lnk[hidden]{display:none}
+.chip[hidden]{display:none}
+#chipWxIco{display:flex}
+.wxg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+.wxc{border:1px solid var(--panel-line);border-radius:14px;padding:8px 10px;min-width:0}
+.wxc span{display:block;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:3px}
+.wxc b{display:flex;align-items:center;font-weight:500;font-size:13.5px;font-variant-numeric:tabular-nums}
+.wxc em{font-style:normal}
+.aqd{width:8px;height:8px;border-radius:50%;margin-right:6px;flex:none;background:var(--c)}
+.chip.wxoff{opacity:.55;filter:grayscale(1)}
+.sheet.is-wx{max-height:88vh}
+.wxhd{display:flex;align-items:center;gap:16px;margin-top:12px}
+.wxhd .wxi{display:grid;place-items:center;width:64px;height:64px;border-radius:20px;background:var(--track);flex:none}
+.wxhd strong{display:block;font-family:var(--font-display);font-weight:400;font-size:46px;line-height:1.05;letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.wxhd b{display:block;font-weight:500;font-size:18px;margin-top:2px}
+.wxhd small{display:block;color:var(--ink-soft);font-size:13.5px;margin-top:2px}
+.wxg{gap:10px}
+.wxc{display:flex;gap:10px;align-items:flex-start;padding:10px 12px}
+.wxc>i{flex:none;display:grid;place-items:center;color:var(--ink-soft);margin-top:1px}
+.wxc>div{min-width:0}
+.wxc b{font-size:15px}
+.wxc small{display:block;color:var(--ink-soft);font-size:12px;margin-top:2px}
+.wxsrc{font-size:11px;opacity:.75}
+.ib.ok{color:var(--ok)}
+.ib.ko{color:var(--accent)}
+.brand{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0}
+.brandlogo{height:34px;width:auto;max-width:100%;display:block;object-fit:contain;object-position:left center}
+.brandsub{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);margin:0}
+.wxset{display:flex;align-items:center;gap:12px;margin-top:12px;padding:10px 12px;border-radius:14px;background:var(--track)}
+.wxset span{flex:1;min-width:0;font-size:14px}
+.wxset small{display:block;font-size:12.5px;color:var(--ink-soft)}
+.gear{width:36px;height:36px;border-radius:50%;border:1px solid var(--panel-line);background:transparent;display:grid;place-items:center;padding:0;flex:none;color:var(--ink-soft)}
+.gear svg{width:18px;height:18px}
+.sheet input[type=text]{display:block;width:100%;height:42px;border-radius:12px;border:1px solid var(--panel-line);background:var(--track);color:var(--ink);font:inherit;padding:0 12px;user-select:text;-webkit-user-select:text}
+.sheet input[type=text]::placeholder{color:var(--ink-soft)}
+.sheet select{display:block;width:100%;height:42px;border-radius:12px;border:1px solid var(--panel-line);background:var(--track);color:var(--ink);font:inherit;padding:0 12px}
+.shd .add{width:auto;height:34px;margin:0;padding:0 12px;font-size:13.5px;flex:none}
+.cand[aria-pressed="true"]{border-color:var(--accent)}
+.ents{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.ents .note{margin:0}
+.ent{display:flex;align-items:center;gap:6px;max-width:100%;padding:4px 5px 4px 10px;border-radius:999px;border:1px solid var(--panel-line);background:var(--track);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px}
+.ent span{overflow-wrap:anywhere}
+.ent button{width:24px;height:24px;border-radius:50%;border:0;background:var(--panel-line);font-size:15px;line-height:1;padding:0 0 2px;flex:none}
+.cands{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:4px;max-height:min(44vh,320px);overflow:auto}
+.cands .note{margin:2px 0}
+.cand{display:block;width:100%;text-align:left;background:transparent;border:1px solid var(--panel-line);border-radius:12px;padding:7px 10px}
+.cand b{display:block;font-weight:500;font-size:13.5px}
+.cand small{display:block;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;color:var(--ink-soft);overflow-wrap:anywhere}
+.cand.used b{color:var(--ink-soft)}
+.row2{display:flex;gap:8px}
+.lon{display:grid;gap:2px;padding:9px 12px;border:1px solid var(--panel-line);border-radius:16px}
+.lon b{font-weight:500;font-size:14.5px}
+.lon small{font-size:12.5px;color:var(--ink-soft)}
+.lon .btn{margin-top:6px;height:40px}
+.btn.danger{color:var(--accent);border-color:var(--accent)}
+.pill.missing{opacity:.5}
+.pill.add{padding:9px 13px}
+.pill.bound::after{content:"";display:inline-block;width:4px;height:4px;margin-left:6px;border-radius:50%;background:currentColor;vertical-align:middle;opacity:.7}
+.bars{display:flex;align-items:flex-end;gap:8px;height:130px;margin-top:18px}
+.bar{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:5px;font-size:11px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.bar i{display:block;width:100%;min-height:2px;border-radius:6px 6px 2px 2px;background:var(--warm)}
+.cam{display:block;width:100%;margin-top:14px;border-radius:14px;background:var(--track);min-height:150px;object-fit:cover}
+.sheet .lnk{display:block;margin-top:10px;background:none;border:0;padding:6px 0;font-size:12.5px;color:var(--ink-soft);text-decoration:underline}
+#nogl{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center}
+#nogl[hidden]{display:none}
+@media (max-width:380px){.brandlogo{height:28px}.brandsub{font-size:9.5px;letter-spacing:.1em}.tools{gap:6px}.ib{width:38px;height:38px}.chips{gap:4px}.chip{font-size:11.5px;gap:5px;padding:5px 8px 5px 6px}#chipPower i,button.chip::after{display:none}}
+@media (prefers-reduced-motion:reduce){.sheet,.sheet.open,.sw::after,.dock,.hint{transition:none}body.alarm #siren,button.chip.alert{animation:none}}
+</style>
+</head>
+<body>
+<canvas id="gl" tabindex="0" aria-label="Vue 3D de l'appartement. Flèches pour tourner, plus et moins pour zoomer. La liste des équipements est accessible par le bouton en haut."></canvas>
+<div id="labels" aria-hidden="true"></div>
+<div id="siren" aria-hidden="true"></div>
+
+<header class="top">
+  <div class="brand">
+    <img class="brandlogo" src="logo-neoplex.png" alt="Neoplex Systems">
+    <p class="brandsub">Appartement 71</p>
+  </div>
+  <div class="tools">
+    <button class="ib" id="btnHa" aria-label="Connexion à Home Assistant"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
+    <button class="ib" id="btnDay" aria-label="Passer en ambiance jour"></button>
+    <button class="ib" id="btnHome" aria-label="Recentrer la vue"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l7.5 4.3v8.4L12 20.5l-7.5-4.3V7.8z"/><path d="M12 12l7.3-4.1M12 12v8.3M12 12L4.7 7.9"/></svg></button>
+    <button class="ib" id="btnList" aria-label="Configuration des équipements"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg></button>
+  </div>
+  <div class="chips" role="group" aria-label="État de l'appartement">
+    <button class="chip" id="chipLights" type="button" aria-label="Lumières allumées"><i></i><span id="chipLightsTxt"></span></button>
+    <button class="chip" id="chipAlarm" type="button"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 2.6v5.6c0 4.3-2.9 8-7 9.8-4.1-1.8-7-5.5-7-9.8V5.6z"/></svg><span id="chipAlarmTxt"></span></button>
+    <span class="chip" id="chipTemp"><i></i><span id="chipTempTxt"></span></span>
+    <button class="chip" id="chipWx" type="button" aria-label="Météo extérieure" hidden><span id="chipWxIco"></span><span id="chipWxTxt"></span></button>
+    <button class="chip" id="chipPower" type="button" aria-label="Consommation moyenne sur 7 jours" hidden><i></i><span id="chipPowerTxt"></span></button>
+    <span class="chip" id="chipHa"><i></i><span id="chipHaTxt"></span></span>
+  </div>
+</header>
+
+<div class="dock" id="dock">
+  <p class="hint" id="hint"></p>
+  <nav class="scenes" aria-label="Scènes">
+  </nav>
+</div>
+
+<section class="sheet" id="sheet" role="dialog" aria-labelledby="sheetTitle"><div id="sheetBody"></div></section>
+<p class="sr" id="live" aria-live="polite"></p>
+<div class="dlg" id="haSetup" role="dialog" aria-modal="true" aria-labelledby="haSetupTtl" hidden><form id="haForm" autocomplete="off" novalidate>
+  <h2 id="haSetupTtl">Connexion à Home Assistant</h2>
+  <p class="note">Adresse du serveur et jeton d’accès longue durée (Profil › Sécurité dans Home Assistant). Ils restent sur ce téléphone.</p>
+  <label for="haUrl">Adresse locale</label><input type="url" id="haUrl" value="http://192.168.1.25:8123" inputmode="url" spellcheck="false" autocapitalize="off">
+  <label for="haUrl2">Adresse extérieure (optionnel)</label><input type="url" id="haUrl2" placeholder="https://homeassistant.neoplexsystems.com" inputmode="url" spellcheck="false" autocapitalize="off">
+  <label for="haToken">Jeton d’accès</label><input type="password" id="haToken" spellcheck="false" autocapitalize="off" autocomplete="off">
+  <p class="err" id="haErr" role="alert"></p>
+  <div class="row"><button type="button" class="btn" id="haLater">Plus tard</button><button type="submit" class="btn pri">Connecter</button></div>
+  <button type="button" class="lnk" id="haForget" hidden>Oublier ce serveur (revenir à la démo)</button>
+</form></div>
+<div class="dlg" id="alCode" role="dialog" aria-modal="true" aria-labelledby="alCodeTtl" hidden><form id="alForm" autocomplete="off" novalidate>
+  <h2 id="alCodeTtl">Code de l’alarme</h2>
+  <label for="alPin">Code</label><input type="password" id="alPin" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+  <label class="chk"><input type="checkbox" id="alRemember"> Se souvenir sur ce téléphone</label>
+  <p class="err" id="alErr" role="alert"></p>
+  <div class="row"><button type="button" class="btn" id="alCancel">Annuler</button><button type="submit" class="btn pri">Désarmer</button></div>
+</form></div>
+<div class="dlg" id="delDlg" role="dialog" aria-modal="true" aria-labelledby="delTtl" hidden><form id="delForm" autocomplete="off" novalidate>
+  <h2 id="delTtl">Supprimer l’équipement</h2>
+  <p class="note" id="delTxt"></p>
+  <div class="row"><button type="button" class="btn" id="delCancel">Annuler</button><button type="submit" class="btn pri">Supprimer</button></div>
+</form></div>
+<div id="nogl" hidden><p>La vue 3D a besoin de WebGL, qui n'est pas disponible dans ce navigateur.</p></div>
+
+<script>
+(function(){
+'use strict';
+const $=s=>document.querySelector(s);
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const COARSE=matchMedia('(pointer: coarse)').matches;
+const lerp=(a,b,t)=>a+(b-a)*t;
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const mix3=(a,b,t)=>[lerp(a[0],b[0],t),lerp(a[1],b[1],t),lerp(a[2],b[2],t)];
+const hex=h=>[parseInt(h.slice(1,3),16)/255,parseInt(h.slice(3,5),16)/255,parseInt(h.slice(5,7),16)/255];
+const rgbf=c=>[c[0]/255,c[1]/255,c[2]/255];
+const fr=n=>n.toFixed(1).replace('.',',');
+const PI=Math.PI;
+
+/* ---------- vecteurs et matrices (colonnes d'abord) ---------- */
+const V={
+  dot:(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2],
+  cross:(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],
+  norm:a=>{const l=Math.hypot(a[0],a[1],a[2])||1;return[a[0]/l,a[1]/l,a[2]/l];}
+};
+function mMul(a,b){const o=new Float32Array(16);for(let c=0;c<4;c++)for(let r=0;r<4;r++)o[c*4+r]=a[r]*b[c*4]+a[4+r]*b[c*4+1]+a[8+r]*b[c*4+2]+a[12+r]*b[c*4+3];return o;}
+function mOrtho(l,r,b,t,n,f){const o=new Float32Array(16);o[0]=2/(r-l);o[5]=2/(t-b);o[10]=-2/(f-n);o[12]=-(r+l)/(r-l);o[13]=-(t+b)/(t-b);o[14]=-(f+n)/(f-n);o[15]=1;return o;}
+function mLook(eye,x,y,z){return new Float32Array([x[0],y[0],z[0],0,x[1],y[1],z[1],0,x[2],y[2],z[2],0,-V.dot(x,eye),-V.dot(y,eye),-V.dot(z,eye),1]);}
+function mTRS(tx,ty,tz,ry,sx,sy,sz){const c=Math.cos(ry),s=Math.sin(ry);return new Float32Array([c*sx,0,-s*sx,0,0,sy,0,0,s*sz,0,c*sz,0,tx,ty,tz,1]);}
+const IDENT=mTRS(0,0,0,0,1,1,1);
+
+/* ---------- équipements : relevés sur le plan annoté (1 unité = 1 m) ---------- */
+const T0=Date.now();
+const WARM=[255,196,130];
+const air={parents:19.4,joud:20.3,sdb:21.6,salon:20.1,cuisine:19.6};
+const alarm={state:'disarmed',cause:'',at:0,last:''};
+function k2rgb(k){const t=clamp((k-2700)/3800,0,1);return[Math.round(lerp(255,228,t)),Math.round(lerp(186,238,t)),Math.round(lerp(118,255,t))];}
+function pts(a,b,n){const o=[];for(let i=0;i<n;i++){const t=i/(n-1);o.push([lerp(a[0],b[0],t),lerp(a[1],b[1],t),lerp(a[2],b[2],t)]);}return o;}
+function spot(id,name,room,entity,x,z){return{id,kind:'light',caps:'ct',name,room,entity,watts:5,spots:[[x,z]],mark:[x,1.6,z],hits:[[x,1.37,z]],s:{on:false,bri:60,k:3000,rgb:k2rgb(3000)}};}
+function motion(id,name,room,entity,mark,hit,ring,ago,batt){return{id,kind:'motion',masc:true,name,room,entity,mark,hits:[hit],ring,s:{active:false,since:T0-ago*60000,until:0,batt}};}
+function rad(id,name,room,zone,mark,hits,target){return{id,kind:'radiator',masc:true,name,room,zone,entity:'climate.'+id.replace('rad_','radiateur_'),mark,hits,s:{on:true,target}};}
+const devices=[
+  /* salle à manger */
+  {id:'led1',kind:'light',caps:'rgb',name:'LED 1',room:'Salle à manger',entity:'light.led_2',watts:18,
+   mark:[1.4,1.84,5.86],hits:pts([0.5,1.42,5.86],[3.9,1.42,5.86],6).concat(pts([4.1,1.42,5.5],[4.1,1.42,4.2],3)),
+   s:{on:true,bri:85,rgb:[70,224,208]}},
+  {id:'led2',kind:'light',caps:'rgb',name:'LED 2',room:'Salle à manger',entity:'light.led_1',watts:22,
+   mark:[2.9,1.84,7.1],hits:pts([0.5,1.42,7.1],[5.6,1.42,7.1],8),
+   s:{on:true,bri:70,rgb:[255,143,176]}},
+  {id:'sam',kind:'light',caps:'ct',name:'Lumières salle à manger',room:'Salle à manger',watts:15,spots:[[1.41,6.34],[2.01,6.34],[2.53,6.34]],
+   mark:[2.01,1.6,6.34],hits:[[1.41,1.37,6.34],[2.01,1.37,6.34],[2.53,1.37,6.34]],s:{on:false,bri:70,k:3000,rgb:k2rgb(3000)}},
+  /* salon */
+  {id:'salon',kind:'light',caps:'ct',name:'Lumière salon',room:'Salon',watts:12,spots:[[1.74,8.77]],mark:[1.74,1.6,8.77],hits:[[1.74,1.37,8.77]],s:{on:false,bri:70,k:3000,rgb:k2rgb(3000)}},
+  {id:'lamp',kind:'light',caps:'rgb',masc:true,name:'Lampadaire',room:'Salon',entity:'light.lampadaire_2',watts:9,
+   mark:[3.74,2.02,10.72],hits:[[3.74,1.45,10.72],[3.74,0.7,10.72]],s:{on:true,bri:60,rgb:WARM.slice()}},
+  {id:'tv',kind:'tv',name:'Télé',room:'Salon',entity:'media_player.tele',
+   mark:[0.24,1.66,9.1],hits:[[0.25,0.9,9.1],[0.25,0.9,8.7],[0.25,0.9,9.5]],s:{on:true,source:'Netflix',vol:22}},
+  {id:'arc',kind:'speaker',name:'Sonos Arc',room:'Salon',entity:'media_player.salon_salon',
+   mark:[0.36,0.9,9.98],hits:[[0.36,0.43,9.4],[0.36,0.43,8.9]],s:{playing:true,vol:30}},
+  {id:'door_ba',kind:'door',name:'Porte balcon',room:'Salon',entity:'binary_sensor.capteur_balcon_contact',
+   mark:[1.72,1.28,11.74],hits:[[1.72,0.5,11.74],[2.51,0.83,11.74]],s:{open:false,since:T0-8*3600000,batt:64}},
+  {id:'th_salon',kind:'thermo',masc:true,name:'Thermomètre salon',room:'Salon',zone:'salon',entity:'sensor.h5075_baf3_temperature',
+   mark:[3.2,1.3,11.2],hits:[[3.2,0.96,11.2]],s:{batt:88}},
+  rad('rad_salon','Radiateur salon','Salon','salon',[0.1,0.85,10.83],[[0.05,0.4,10.5],[0.05,0.4,10.83],[0.05,0.4,11.15]],20.5),
+  {id:'thermostat',kind:'climate',masc:true,name:'Thermostat',room:'Salon',zone:'salon',mark:[0.1,0.85,7.65],hits:[[0.03,0.55,7.65]],s:{on:true,target:20.5}},
+  /* cuisine */
+  {id:'cuis1',kind:'light',caps:'ct',name:'Cuisine L1',room:'Cuisine',entity:'switch.switch_cuisine_l2',watts:15,spots:[[4.8,8.89],[4.8,9.27],[4.8,9.63]],
+   mark:[4.8,1.6,9.27],hits:[[4.8,1.37,8.89],[4.8,1.37,9.27],[4.8,1.37,9.63]],s:{on:false,bri:80,k:4000,rgb:k2rgb(4000)}},
+  {id:'cuis2',kind:'light',caps:'rgb',name:'Cuisine L2',room:'Cuisine',entity:'switch.switch_cuisine_l1',watts:12,
+   mark:[6.0,1.1,10.2],hits:pts([6.0,0.84,8.7],[6.0,0.84,11.2],5),s:{on:true,bri:60,rgb:WARM.slice()}},
+  {id:'era',kind:'speaker',name:'Sonos Era 100',room:'Cuisine',entity:'media_player.cuisine_cuisine',
+   mark:[5.82,1.02,8.66],hits:[[5.82,0.85,8.66]],s:{playing:false,vol:20}},
+  motion('mo_cuisine','Détecteur cuisine','Cuisine','binary_sensor.capteur_cuisine_occupancy',[5.5,1.5,8.47],[5.5,1.08,8.47],[5.05,9.1],21,76),
+  rad('rad_cuisine','Radiateur cuisine','Cuisine','cuisine',[4.14,0.85,10.92],[[4.09,0.4,10.6],[4.09,0.4,10.92],[4.09,0.4,11.2]],19),
+  /* entrée */
+  /* les trois spots de l'entrée forment un seul équipement, relié à trois entités */
+  {id:'entree',kind:'light',caps:'ct',name:'LED entrée',room:'Entrée',
+   entity:'light.0xa4c13838cd80f9ef,light.0xa4c1386d327ed6ba,light.0xa4c138f7f8842019',watts:15,
+   spots:[[4.81,4.46],[4.87,5.51],[4.87,6.39]],
+   mark:[4.87,1.6,5.05],
+   hits:[[4.81,1.37,4.46],[4.87,1.37,5.51],[4.87,1.37,6.39]],
+   s:{on:false,bri:60,k:3000,rgb:k2rgb(3000)}},
+  {id:'door_en',kind:'door',name:'Porte d’entrée',room:'Entrée',entity:'binary_sensor.capteur_porte_entree_contact',
+   mark:[6.34,1.28,4.92],hits:[[6.34,0.5,4.92],[6.34,0.83,5.46]],s:{open:false,since:T0-132*60000,batt:78}},
+  motion('mo_entree','Détecteur entrée','Entrée','binary_sensor.mouvement_entree',[5.88,1.3,3.84],[5.88,0.86,3.84],[5.35,4.55],14,81),
+  /* couloir */
+  /* les deux spots du couloir forment un seul équipement, relié à deux entités */
+  {id:'couloir',kind:'light',caps:'ct',name:'LED couloir',room:'Couloir',entity:'light.led1_couloir,light.led2_couloir',watts:10,spots:[[3.54,4.16],[2.79,4.15]],
+   mark:[3.165,1.6,4.155],hits:[[3.54,1.37,4.16],[2.79,1.37,4.15]],s:{on:false,bri:60,k:3000,rgb:k2rgb(3000)}},
+  motion('mo_couloir','Détecteur couloir','Couloir','binary_sensor.capteur_couloir_chambres_occupancy',[3.86,1.0,4.84],[3.95,0.86,4.82],[3.25,4.3],6,83),
+  /* chambre parents */
+  {id:'door_ch',kind:'door',name:'Porte chambre',room:'Chambre parents',entity:'binary_sensor.capteur_porte_chambre_contact',
+   mark:[2,1.28,-0.32],hits:[[2,0.5,-0.32],[2.56,0.83,-0.32]],s:{open:false,since:T0-47*60000,batt:91}},
+  spot('bureau_lamp','Lampe bureau','Chambre parents','light.bureau',2.66,2.12),
+  motion('mo_parents','Détecteur chambre parents','Chambre parents','binary_sensor.capteur_chambre_parentale_occupancy',[3.02,1.3,1.05],[3.05,0.86,1.05],[2.45,0.5],95,90),
+  {id:'ecran',kind:'plug',masc:true,name:'Écran bureau',room:'Chambre parents',watts:28,
+   mark:[2.88,1.5,1.65],hits:[[2.86,1.0,1.65],[2.86,1.0,1.4],[2.86,1.0,1.9]],s:{on:false}},
+  rad('rad_parents','Radiateur chambre parents','Chambre parents','parents',[2.86,0.8,0.36],[[2.95,0.4,0.25],[2.95,0.4,0.6]],19),
+  /* chambre Joud */
+  spot('joud_lamp','Lumière chambre Joud','Chambre Joud','light.chambre_joud',4.55,1.4),
+  {id:'cam',kind:'camera',name:'Caméra',room:'Chambre Joud',entity:'light.on_off_plug_1',
+   mark:[5.76,1.36,0.2],hits:[[5.76,0.95,0.2]],s:{on:true}},
+  {id:'th_joud',kind:'thermo',masc:true,name:'Thermomètre chambre Joud',room:'Chambre Joud',zone:'joud',entity:'sensor.thermometre_chambre_joud',
+   mark:[3.29,1.3,2.35],hits:[[3.29,0.96,2.35]],s:{batt:93}},
+  rad('rad_joud','Radiateur chambre Joud','Chambre Joud','joud',[3.24,1.15,0.6],[[3.15,0.4,0.25],[3.15,0.4,0.6]],20.5),
+  /* salle de bain */
+  rad('rad_sdb','Radiateur salle de bain','Salle de bain','sdb',[1.2,1.25,3.95],[[1.2,0.5,3.95],[1.2,0.85,3.95]],21),
+  /* volets roulants */
+  {id:'volet_salon',kind:'cover',name:'Volet salon',room:'Salon',entity:'cover.volet_salon',
+   mark:[1.72,1.05,11.62],hits:[[1.72,0.5,11.62],[2.2,0.5,11.62]],s:{pos:0}},
+  {id:'volet_parents',kind:'cover',name:'Volet chambre parents',room:'Chambre parents',entity:'cover.volet_chambre_parents',
+   mark:[2.0,1.05,-0.22],hits:[[2.0,0.5,-0.22]],s:{pos:0}},
+  {id:'volet_joud',kind:'cover',name:'Volet chambre enfant',room:'Chambre Joud',entity:'cover.volet_chambre_enfant',
+   mark:[4.85,1.05,-0.22],hits:[[4.85,0.5,-0.22]],s:{pos:0}},
+  {id:'volet_cuisine',kind:'cover',name:'Volet cuisine',room:'Cuisine',entity:'cover.volet_cuisine',
+   mark:[5.15,1.05,11.62],hits:[[5.15,0.5,11.62]],s:{pos:0}}
+];
+/* entité Home Assistant inconnue d'origine : à relier depuis le menu de configuration */
+devices.forEach(d=>{if(/^(mo_entree|th_joud|thermostat|rad_.+)$/.test(d.id))d.entity='';});
+/* ---------- équipements ajoutés ou supprimés depuis l'application ---------- */
+const ROOM_ORDER=['Salle à manger','Salon','Cuisine','Entrée','Couloir','Chambre parents','Chambre Joud','Salle de bain'];
+const CUSTOM_KEY='neoplex.custom';
+const ADD_KINDS=[['light','Lumière'],['plug','Prise'],['cover','Volet'],['door','Porte'],['motion','Détecteur'],['thermo','Thermomètre'],['tv','Télé'],['speaker','Enceinte'],['camera','Caméra']];
+const ZONES={'Salle à manger':'salon','Salon':'salon','Cuisine':'cuisine','Entrée':'salon','Couloir':'salon','Chambre parents':'parents','Chambre Joud':'joud','Salle de bain':'sdb'};
+const CUSTOM={add:[],del:[]};
+try{const c=JSON.parse(localStorage.getItem(CUSTOM_KEY)||'null')||{};
+  CUSTOM.add=(Array.isArray(c.add)?c.add:[]).filter(o=>o&&o.id&&ADD_KINDS.some(k=>k[0]===o.kind)&&isFinite(o.x)&&isFinite(o.z));
+  CUSTOM.del=Array.isArray(c.del)?c.del:[];}catch(_){}
+function saveCustom(){try{localStorage.setItem(CUSTOM_KEY,JSON.stringify(CUSTOM));}catch(_){}}
+function mkCustom(o){
+  const x=+o.x,z=+o.z,d={id:o.id,kind:o.kind,name:String(o.name||o.kind),room:ROOM_ORDER.indexOf(o.room)>=0?o.room:ROOM_ORDER[0],entity:o.entity||'',
+    custom:true,mark:[x,1.4,z],hits:[[x,1.4,z]]};
+  switch(o.kind){
+    case'light':Object.assign(d,{caps:'ct',watts:8,spots:[[x,z]],s:{on:false,bri:60,k:3000,rgb:k2rgb(3000)}});break;
+    case'plug':Object.assign(d,{watts:0,s:{on:false}});break;
+    case'cover':d.s={pos:0};break;
+    case'door':d.s={open:false,since:T0,batt:80};break;
+    case'motion':Object.assign(d,{masc:true,ring:[x,z],s:{active:false,since:T0,until:0,batt:80}});break;
+    case'thermo':Object.assign(d,{masc:true,zone:ZONES[d.room]||'salon',s:{batt:80}});break;
+    case'tv':d.s={on:false,source:'TV',vol:20};break;
+    case'speaker':d.s={playing:false,vol:20};break;
+    default:d.s={on:true};
+  }
+  return d;
+}
+/* un équipement d'origine supprimé reste connu (scènes, visuels du plan) mais éteint, inerte et hors de la liste */
+const GONE=devices.filter(d=>CUSTOM.del.indexOf(d.id)>=0);
+devices.splice(0,devices.length,
+  ...devices.filter(d=>CUSTOM.del.indexOf(d.id)<0).concat(CUSTOM.add.map(mkCustom)));
+const byId={};devices.forEach(d=>{byId[d.id]=d;d.last='';});
+GONE.forEach(d=>{byId[d.id]=d;d.last='';d.gone=d.pending=true;d.ents=[];d.s.on=d.s.playing=d.s.open=d.s.active=false;});
+const MOTION=devices.filter(d=>d.kind==='motion'),RADS=devices.filter(d=>d.kind==='radiator');
+const lamps=()=>devices.filter(d=>d.kind==='light'&&!d.pending);
+const SOURCES=['TV','Netflix','YouTube','Console'];
+const SWATCHES=[['Blanc chaud',WARM],['Blanc froid',[226,238,255]],['Corail',[255,116,96]],['Rose',[255,143,176]],['Violet',[169,139,255]],['Bleu',[90,150,255]],['Turquoise',[70,224,208]],['Vert',[120,226,138]]];
+const AL={disarmed:'Désarmée',armed_home:'Armée · maison',armed_away:'Armée · absent',triggered:'Déclenchée',arming:'Armement…',pending:'Délai d’entrée',unavailable:'Indisponible'};
+const ui={sel:null,scene:null,mode:'night',sun:null,ovr:null};
+
+/* ---------- Home Assistant : WebSocket uniquement (la page est servie en file://) ---------- */
+const HA_KEY='neoplex.ha',CODE_KEY='neoplex.alarmcode',ALARM_ENTITY='alarm_control_panel.alarmo';
+const BACKOFF=[1000,2000,5000,10000,30000];
+/* bascule locale / extérieure : on commence par la dernière adresse qui a marché */
+const PICK_KEY='neoplex.hapick',HOP_MS=1200,HOP_WAIT=6000;
+const ha={cfg:null,ws:null,ready:false,seq:0,cbs:{},queue:[],deb:{},tries:0,timer:0,wd:0,urls:[],idx:0,hop:0,fresh:false,authFailed:false,err:'',flash:'',flashT:0,states:{}};
+/* ---------- configuration des équipements : modifiable dans l'application, gardée sur le téléphone ---------- */
+const DEV_KEY='neoplex.devices';
+const CAPS=[['auto','Auto'],['onoff','Marche / arrêt'],['dim','Variateur'],['ct','Blanc réglable'],['rgb','Couleur'],['rgbct','Couleur + blanc']];
+const DOMAINS={light:['light','switch','input_boolean'],plug:['switch','light','media_player','input_boolean','fan'],tv:['media_player'],speaker:['media_player'],
+  door:['binary_sensor'],motion:['binary_sensor'],thermo:['sensor'],radiator:['climate'],climate:['climate'],camera:['camera','light','switch','input_boolean'],cover:['cover']};
+const MULTI={light:1,plug:1};
+const byEntity={};
+let devCfg={};
+try{devCfg=JSON.parse(localStorage.getItem(DEV_KEY)||'{}')||{};}catch(_){devCfg={};}
+devices.forEach(d=>{d.def={name:d.name,caps:d.caps||'',inv:!!d.inv,ents:d.entity?d.entity.split(','):[]};d.est={};});
+/* migration unique : LED 1 / LED 2 et Cuisine L1 / L2 avaient leurs entités inversées */
+try{if(localStorage.getItem('neoplex.migr')!=='swap-led-cuisine'){
+  let ch=false;
+  [['led1','led2'],['cuis1','cuis2']].forEach(p=>{
+    const a=devCfg[p[0]]||{},b=devCfg[p[1]]||{};
+    if(!a.ents&&!b.ents)return;
+    const ea=a.ents,eb=b.ents;ch=true;
+    [[p[0],a,eb],[p[1],b,ea]].forEach(x=>{
+      const c=x[1],def=byId[x[0]]&&byId[x[0]].def;
+      if(x[2]&&!(def&&x[2].join()===def.ents.join()))c.ents=x[2];else delete c.ents;
+      if(Object.keys(c).length)devCfg[x[0]]=c;else delete devCfg[x[0]];
+    });
+  });
+  if(ch)localStorage.setItem(DEV_KEY,JSON.stringify(devCfg));
+  localStorage.setItem('neoplex.migr','swap-led-cuisine');
+}}catch(_){}
+function domOf(e){return e.split('.')[0];}
+function applyCfg(){
+  Object.keys(byEntity).forEach(k=>{delete byEntity[k];});
+  devices.forEach(d=>{
+    const c=devCfg[d.id]||{};
+    d.name=c.name||d.def.name;
+    d.ents=(c.ents||d.def.ents).slice();
+    d.capsCfg=c.caps||'auto';
+    d.inv=(c.inv!=null)?!!c.inv:!!d.def.inv;
+    d.entity=d.ents.join(', ');
+    d.pending=!d.ents.length;
+    d.ents.forEach(e=>{(byEntity[e]=byEntity[e]||[]).push(d);});
+  });
+}
+applyCfg();
+function saveCfg(d,patch){
+  const c=Object.assign({},devCfg[d.id],patch);
+  /* on ne garde que ce qui diffère des réglages d'origine */
+  if(c.name===d.def.name)delete c.name;
+  if(c.caps==='auto')delete c.caps;
+  if(c.inv!=null&&!!c.inv===d.def.inv)delete c.inv;
+  if(c.ents&&c.ents.join()===d.def.ents.join())delete c.ents;
+  if(Object.keys(c).length)devCfg[d.id]=c;else delete devCfg[d.id];
+  try{localStorage.setItem(DEV_KEY,JSON.stringify(devCfg));}catch(_){}
+  applyCfg();
+}
+/* type d'une lumière : choix manuel, sinon ce que Home Assistant annonce, sinon le type d'origine */
+function capsOf(d){
+  if(d.capsCfg&&d.capsCfg!=='auto')return d.capsCfg;
+  if(d.ents.length&&d.ents.every(e=>domOf(e)!=='light'))return'onoff';
+  const m=d.modes;
+  if(m&&m.length){
+    if(m.some(x=>/^(hs|xy|rgb|rgbw|rgbww)$/.test(x)))return m.indexOf('color_temp')>=0?'rgbct':'rgb';
+    if(m.indexOf('color_temp')>=0)return'ct';
+    if(m.indexOf('brightness')>=0||m.indexOf('white')>=0)return'dim';
+    return'onoff';
+  }
+  return d.def.caps||'rgb';
+}
+function haLoad(){try{const c=JSON.parse(localStorage.getItem(HA_KEY)||'null');return c&&c.url&&c.token?c:null;}catch(_){return null;}}
+function haWsUrl(u){
+  u=u.trim().replace(/\/+$/,'').replace(/\/api\/websocket$/,'');
+  if(!/^[a-z]+:\/\//i.test(u))u='http://'+u;
+  return u.replace(/^https:\/\//i,'wss://').replace(/^http:\/\//i,'ws://')+'/api/websocket';
+}
+function haErrTxt(m){const e=m&&m.error;return e?(e.code?e.code+' · ':'')+(e.message||''):'échec';}
+function haStatus(){
+  const st=!ha.cfg?['','Démo locale']:ha.ready?['ok','HA connecté']:ha.ws?['','HA connexion…']:['ko','HA hors ligne'];
+  chip('chipHa',ha.flash?'ko':st[0],ha.flash||st[1]);
+  $('#btnHa').className='ib'+(st[0]?' '+st[0]:'');
+  $('#chipHa').hidden=ha.ready&&!ha.flash;
+  const where=ha.cfg&&ha.urls.length>1?'Adresse '+(ha.idx?'extérieure':'locale'):'';
+  $('#chipHa').title=[where,ha.err].filter(Boolean).join(' · ');
+}
+function haFlash(txt){
+  ha.flash=txt;clearTimeout(ha.flashT);
+  ha.flashT=setTimeout(()=>{ha.flash='';haStatus();measure();},6000);
+  haStatus();measure();$('#live').textContent=txt;
+}
+function haRaw(msg,cb){msg.id=++ha.seq;if(cb)ha.cbs[msg.id]=cb;ha.ws.send(JSON.stringify(msg));}
+function haSend(msg,cb){
+  if(ha.ready&&ha.ws){
+    try{haRaw(msg,cb);}catch(e){delete ha.cbs[msg.id];if(cb)cb({success:false,error:{message:String(e.message||e)}});}
+    return;
+  }
+  ha.queue.push({msg,cb,at:Date.now()});
+  if(ha.queue.length>40){const q=ha.queue.shift();if(q.cb)q.cb({success:false,error:{message:'file d’attente pleine'}});}
+}
+/* key : regroupe les appels rapprochés (curseurs) pour n'envoyer que le dernier */
+function haCall(domain,service,data,cb,key){
+  const msg={type:'call_service',domain,service,service_data:data};
+  if(!key){haSend(msg,cb);return;}
+  clearTimeout(ha.deb[key]);
+  ha.deb[key]=setTimeout(()=>{delete ha.deb[key];haSend(msg,cb);},150);
+}
+function haFlush(){
+  const q=ha.queue;ha.queue=[];
+  q.forEach(it=>{
+    if(Date.now()-it.at>60000){if(it.cb)it.cb({success:false,error:{message:'expiré hors connexion'}});}
+    else haSend(it.msg,it.cb);
+  });
+}
+function haDrop(why){const cbs=ha.cbs;ha.cbs={};Object.keys(cbs).forEach(k=>cbs[k]({success:false,error:{message:why}}));}
+function haRetry(){
+  clearTimeout(ha.timer);
+  const ms=BACKOFF[Math.min(ha.tries,BACKOFF.length-1)];ha.tries++;
+  ha.timer=setTimeout(haConnect,ms);haStatus();
+}
+/* adresses à essayer : locale puis extérieure, sans vides ni doublons */
+function haUrls(c){
+  const r=[];
+  [c.url,c.url2].forEach(u=>{u=(u||'').trim();if(u&&r.every(x=>haWsUrl(x)!==haWsUrl(u)))r.push(u);});
+  return r;
+}
+/* échec avant auth_ok : adresse suivante rapidement, sinon boucle de reconnexion normale */
+function haNext(){
+  clearTimeout(ha.timer);clearTimeout(ha.wd);
+  if(ha.hop+1<ha.urls.length){
+    ha.hop++;ha.idx=(ha.idx+1)%ha.urls.length;
+    ha.timer=setTimeout(()=>haConnect(true),HOP_MS);haStatus();return;
+  }
+  if(ha.fresh){ha.fresh=false;haStatus();showSetup('Serveur injoignable ('+ha.urls.join(' / ')+') : '+ha.err+'. Vérifie l’adresse et le réseau.');return;}
+  haRetry();
+}
+function haConnect(hop){
+  clearTimeout(ha.timer);clearTimeout(ha.wd);
+  if(ha.ws){const o=ha.ws;ha.ws=null;o.onclose=null;try{o.close();}catch(_){}}
+  ha.ready=false;ha.cfg=haLoad();
+  if(!ha.cfg){haStatus();showSetup('');return;}
+  ha.urls=haUrls(ha.cfg);
+  if(hop!==true){
+    const p=parseInt(localStorage.getItem(PICK_KEY),10)||0;
+    ha.hop=0;ha.idx=p>0&&p<ha.urls.length?p:0;
+  }
+  const url=ha.urls[ha.idx];
+  let ws;
+  try{ws=new WebSocket(haWsUrl(url));}
+  catch(e){ha.err='adresse invalide : '+String(e.message||e);haNext();return;}
+  ha.ws=ws;haStatus();
+  /* une adresse injoignable (IP locale vue de l'extérieur) peut rester bloquée : on n'attend pas */
+  ha.wd=setTimeout(()=>{
+    if(ha.ws!==ws||ha.ready)return;
+    ha.ws=null;ws.onclose=null;try{ws.close();}catch(_){}
+    haDrop('connexion perdue');ha.err='délai dépassé';haNext();
+  },HOP_WAIT);
+  ws.onmessage=e=>{let m;try{m=JSON.parse(e.data);}catch(_){return;}haMsg(ws,m);};
+  ws.onclose=e=>{
+    if(ha.ws!==ws)return;
+    clearTimeout(ha.wd);
+    const was=ha.ready;ha.ws=null;ha.ready=false;haDrop('connexion perdue');
+    if(!ha.authFailed)ha.err='connexion fermée'+(e&&e.code?' ('+e.code+')':'');
+    if(was){renderSheet();$('#live').textContent='Home Assistant hors ligne';}
+    if(ha.authFailed){haStatus();return;}
+    if(!was){haNext();return;}
+    haRetry();
+  };
+}
+function haMsg(ws,m){
+  if(m.type==='auth_required')ws.send(JSON.stringify({type:'auth',access_token:ha.cfg.token}));
+  else if(m.type==='auth_invalid'){
+    ha.authFailed=true;ha.fresh=false;ha.err=m.message||'jeton refusé';
+    try{ws.close();}catch(_){}
+    showSetup('Authentification refusée par Home Assistant : '+ha.err);
+  }else if(m.type==='auth_ok'){
+    clearTimeout(ha.wd);
+    ha.ready=true;ha.tries=0;ha.fresh=false;ha.authFailed=false;ha.err='';
+    try{localStorage.setItem(PICK_KEY,String(ha.idx));}catch(_){}
+    haRaw({type:'subscribe_events',event_type:'state_changed'},r=>{if(!r.success)haFlash('Abonnement refusé : '+haErrTxt(r));});
+    haRaw({type:'get_states'},r=>{
+      if(!r.success){haFlash('Lecture des états impossible : '+haErrTxt(r));return;}
+      (r.result||[]).forEach(st=>haApply(st,true));
+      refreshUI(false);measure();
+      wattFetch(false);
+    });
+    haFlush();haStatus();renderSheet();$('#live').textContent='Home Assistant connecté';
+  }else if(m.type==='event'&&m.event&&m.event.event_type==='state_changed'){
+    const st=m.event.data&&m.event.data.new_state;
+    if(st&&haApply(st,false))refreshUI(true);
+  }else if(m.type==='result'){
+    const cb=ha.cbs[m.id];if(cb){delete ha.cbs[m.id];cb(m);}
+  }
+}
+/* état HA → équipement(s) reliés à cette entité ; renvoie true si l'état concerne la maquette */
+function haApply(st,bulk){
+  const id=st.entity_id;
+  ha.states[id]=st;
+  if(wxWatch(id)){wxUpdate();if(id==='sun.sun')applyDayNight();return true;}   /* météo : weather.*, sun.sun, capteur UV */
+  if(id===ALARM_ENTITY){haAlarm(st);return true;}
+  const list=byEntity[id];if(!list)return false;
+  list.forEach(d=>haApplyDev(d,st,bulk));
+  return true;
+}
+function haApplyDev(d,st,bulk){
+  const id=st.entity_id,v=st.state,a=st.attributes||{},s=d.s,dom=domOf(id),ts=Date.parse(st.last_changed)||Date.now();
+  const gone=v==='unavailable';
+  d.est[id]={on:dom==='media_player'?v!=='off'&&v!=='standby'&&!gone:v==='on',gone};
+  d.offline=d.ents.every(e=>d.est[e]&&d.est[e].gone);
+  const anyOn=()=>d.ents.some(e=>d.est[e]&&d.est[e].on);
+  if(d.kind==='tv'||d.kind==='speaker'){
+    s.on=v!=='off'&&!gone;s.playing=v==='playing';
+    if(a.volume_level!=null)s.vol=Math.round(a.volume_level*100);
+    if(a.source)s.source=a.source;
+    if(a.source_list&&a.source_list.length)d.sources=a.source_list.slice(0,12);
+    return;
+  }
+  if(d.kind==='camera'){s.on=(dom==='light'||dom==='switch')?v==='on':!gone;if(a.entity_picture)d.pic=a.entity_picture;return;}
+  if(d.kind==='cover'){
+    /* moteur inversé (Tuya) : la position HA brute est retournée pour garder 0 = fermé, 100 = ouvert */
+    if(!gone){const raw=(a.current_position!=null)?a.current_position:(v==='open'?100:0);s.pos=d.inv?100-raw:raw;}
+    return;
+  }
+  if(d.kind==='light'||d.kind==='plug'){
+    s.on=anyOn();
+    if(gone||v==='unknown'||dom!=='light')return;
+    if(a.supported_color_modes){
+      d.modeBy=d.modeBy||{};d.modeBy[id]=a.supported_color_modes;
+      d.modes=[].concat.apply([],d.ents.map(e=>d.modeBy[e]||[]));
+    }
+    /* bornes du blanc réglable annoncées par HA (défaut 2000–6500 K) */
+    if(a.min_color_temp_kelvin)d.minK=a.min_color_temp_kelvin;
+    if(a.max_color_temp_kelvin)d.maxK=a.max_color_temp_kelvin;
+    if(v==='on'||d.ents.length===1){
+      if(a.brightness!=null)s.bri=Math.max(1,Math.round(a.brightness/2.55));
+      if(a.rgb_color)s.rgb=a.rgb_color.slice();
+      if(a.color_temp_kelvin){s.k=a.color_temp_kelvin;s.rgb=k2rgb(s.k);}
+    }
+    return;
+  }
+  if(gone||v==='unknown')return;
+  if(d.kind==='door'){s.open=v==='on';s.since=ts;if(!bulk)d.last='state_changed · '+v;}
+  else if(d.kind==='motion'){s.active=v==='on';s.until=s.active?Infinity:0;s.since=ts;if(!bulk)d.last='state_changed · '+v;}
+  else if(d.kind==='thermo'){const t=parseFloat(v);if(isFinite(t))air[d.zone]=t;}
+  else if(d.kind==='radiator'||d.kind==='climate'){
+    s.on=v!=='off';
+    if(a.temperature!=null)s.target=a.temperature;
+    if(a.current_temperature!=null)air[d.zone]=a.current_temperature;
+  }
+}
+/* après un changement de configuration : relire les états déjà connus pour cet équipement */
+function haResync(d){
+  d.est={};d.modes=null;d.modeBy=null;d.minK=d.maxK=null;d.offline=false;d.pic='';d.sources=null;
+  d.ents.forEach(e=>{const st=ha.states[e];if(st)haApplyDev(d,st,true);});
+}
+const ALMAP={armed_night:'armed_home',armed_custom_bypass:'armed_home',armed_vacation:'armed_away'};
+function haAlarm(st){
+  let v=ALMAP[st.state]||st.state;if(!AL[v])v='unavailable';
+  if(v==='triggered'&&alarm.state!=='triggered'){
+    alarm.at=Date.parse(st.last_changed)||Date.now();
+    const os=st.attributes&&st.attributes.open_sensors;
+    alarm.cause=os?Object.keys(os).map(e=>byEntity[e]?byEntity[e][0].name:e).join(', '):'';
+  }
+  if(v!=='triggered')alarm.cause='';
+  alarm.state=v;alarmChanged();
+}
+/* commande UI → service HA : un appel par domaine réel (un équipement peut regrouper plusieurs entités) */
+function haHub(service,d,data){
+  const groups={},caps=d.kind==='light'?capsOf(d):'';
+  d.ents.forEach(e=>{(groups[domOf(e)]=groups[domOf(e)]||[]).push(e);});
+  Object.keys(groups).forEach(dom=>{
+    let sd={};
+    if(d.kind==='light'||d.kind==='plug'){
+      /* on n'envoie que ce que cette lumière sait faire ; un interrupteur ne reçoit rien */
+      if(dom==='light'&&service==='turn_on'){
+        if(caps!=='onoff'&&data.brightness_pct!=null)sd.brightness_pct=data.brightness_pct;
+        if((caps==='rgb'||caps==='rgbct')&&data.rgb_color)sd.rgb_color=data.rgb_color;
+        if((caps==='ct'||caps==='rgb'||caps==='rgbct')&&data.color_temp_kelvin)sd.color_temp_kelvin=data.color_temp_kelvin;
+      }
+    }else sd=Object.assign({},data);
+    let svc=service;
+    if(dom==='cover'&&d.inv){
+      if(svc==='set_cover_position'&&sd.position!=null)sd.position=100-sd.position;
+      else if(svc==='open_cover')svc='close_cover';
+      else if(svc==='close_cover')svc='open_cover';
+    }
+    const ents=groups[dom],name=dom+'.'+svc;
+    sd.entity_id=ents.length>1?ents:ents[0];
+    d.last=name+' · '+(ha.ready?'envoi…':'en attente');
+    haCall(dom,svc,sd,m=>{
+      d.last=name+(m.success?' · ok':' · erreur : '+haErrTxt(m));
+      if(!m.success)haFlash(d.name+' : '+haErrTxt(m));
+      refreshUI(true);
+    },d.id+'|'+dom+'|'+svc);
+  });
+}
+function showSetup(msg){
+  const c=haLoad();
+  if(c){$('#haUrl').value=c.url;$('#haUrl2').value=c.url2||'';}
+  $('#haToken').value='';$('#haToken').placeholder=c?'inchangé si vide':'';
+  $('#haErr').textContent=msg||'';
+  $('#haForget').hidden=!c;
+  $('#haSetup').hidden=false;
+  setTimeout(()=>$('#haToken').focus(),60);
+}
+function askCode(msg){
+  $('#alPin').value='';$('#alRemember').checked=false;$('#alErr').textContent=msg||'';
+  $('#alCode').hidden=false;
+  setTimeout(()=>$('#alPin').focus(),60);
+}
+function hideDlg(){
+  for(const id of ['#delDlg','#alCode','#haSetup']){const e=$(id);if(!e.hidden){e.hidden=true;return true;}}
+  if(addUi.placing){placeEnd();return true;}
+  return false;
+}
+/* suppression : un équipement ajouté disparaît de la liste des ajouts, un équipement d'origine est masqué */
+let delId='';
+function delAsk(d){
+  if(!d)return;
+  delId=d.id;$('#delTxt').textContent='Supprimer '+d.name+' ? Cette action est définitive.';
+  $('#delDlg').hidden=false;
+}
+$('#delForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const i=CUSTOM.add.findIndex(o=>o.id===delId);
+  if(i>=0){
+    CUSTOM.add.splice(i,1);
+    if(devCfg[delId]){delete devCfg[delId];try{localStorage.setItem(DEV_KEY,JSON.stringify(devCfg));}catch(_){}}
+  }else if(delId&&CUSTOM.del.indexOf(delId)<0)CUSTOM.del.push(delId);
+  saveCustom();location.reload();
+});
+$('#delCancel').addEventListener('click',()=>{$('#delDlg').hidden=true;});
+$('#haForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const url=$('#haUrl').value.trim(),url2=$('#haUrl2').value.trim(),old=haLoad(),token=$('#haToken').value.trim()||(old?old.token:'');
+  if(!url||!token){$('#haErr').textContent='Adresse et jeton d’accès requis.';return;}
+  localStorage.setItem(HA_KEY,JSON.stringify(url2?{url,url2,token}:{url,token}));
+  if(!old||old.url!==url||(old.url2||'')!==url2)localStorage.removeItem(PICK_KEY);
+  $('#haToken').value='';$('#haSetup').hidden=true;
+  ha.tries=0;ha.authFailed=false;ha.err='';ha.fresh=true;
+  haConnect();
+});
+$('#haLater').addEventListener('click',()=>{$('#haSetup').hidden=true;});
+$('#haForget').addEventListener('click',()=>{
+  localStorage.removeItem(HA_KEY);localStorage.removeItem(PICK_KEY);
+  $('#haSetup').hidden=true;
+  clearTimeout(ha.timer);clearTimeout(ha.wd);
+  if(ha.ws){const o=ha.ws;ha.ws=null;o.onclose=null;try{o.close();}catch(_){}}
+  ha.ready=false;ha.cfg=null;ha.err='';ha.authFailed=false;haDrop('connexion fermée');
+  haStatus();renderSheet();
+});
+$('#btnHa').addEventListener('click',()=>showSetup(ha.cfg&&!ha.ready?ha.err:''));
+$('#alForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const c=$('#alPin').value.trim();
+  if(!c){$('#alErr').textContent='Saisis le code.';return;}
+  $('#alCode').hidden=true;$('#alPin').value='';
+  setAlarm('alarm_disarm',c,$('#alRemember').checked);
+});
+$('#alCancel').addEventListener('click',()=>{$('#alCode').hidden=true;});
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden&&ha.cfg&&!ha.ws&&!ha.authFailed){ha.tries=0;haConnect();}
+});
+
+/* ---------- passerelle : mise à jour locale immédiate, puis appel Home Assistant si configuré ---------- */
+function hub(domain,service,d,data,fromScene){
+  if(d.gone)return;
+  const s=d.s;data=data||{};
+  if(domain==='light'){
+    if(service==='turn_off')s.on=false;
+    else{
+      s.on=true;
+      if(data.brightness_pct!=null)s.bri=data.brightness_pct;
+      if(data.rgb_color)s.rgb=data.rgb_color.slice();
+      if(data.color_temp_kelvin){s.k=data.color_temp_kelvin;s.rgb=k2rgb(s.k);}
+    }
+  }else if(domain==='media_player'){
+    if(service==='turn_on')s.on=true;
+    else if(service==='turn_off')s.on=false;
+    else if(service==='select_source'){s.source=data.source;s.on=true;}
+    else if(service==='volume_set')s.vol=Math.round(data.volume_level*100);
+    else if(service==='media_play')s.playing=true;
+    else if(service==='media_pause')s.playing=false;
+  }else if(domain==='climate'){
+    if(service==='set_temperature')s.target=data.temperature;
+    else s.on=data.hvac_mode==='heat';
+  }else if(domain==='switch'){
+    s.on=service==='turn_on';
+  }else if(domain==='cover'){
+    if(service==='set_cover_position')s.pos=data.position;
+    else if(service==='open_cover')s.pos=100;
+    else if(service==='close_cover')s.pos=0;
+  }
+  if(ha.cfg&&!d.pending)haHub(service,d,data);
+  else{
+    const args=Object.keys(data).map(k=>k+': '+(Array.isArray(data[k])?'['+data[k].join(', ')+']':data[k])).join(', ');
+    d.last=domain+'.'+service+(args?' · '+args:'');
+  }
+  if(!fromScene)setScene(null);
+}
+function isOn(d){return d.kind==='speaker'?!!d.s.playing:d.kind==='cover'?d.s.pos>0:!!d.s.on;}
+function canToggle(d){return!d.pending&&(d.kind==='light'||d.kind==='plug'||d.kind==='tv'||d.kind==='speaker'||d.kind==='radiator'||d.kind==='climate'||d.kind==='cover'||camPowered(d));}
+/* caméra alimentée par une prise : pilotable si son entité est une lumière ou un interrupteur */
+function camPowered(d){return d.kind==='camera'&&!!d.ents&&d.ents.some(e=>{const m=domOf(e);return m==='light'||m==='switch';});}
+/* appui sur la maquette : ce qui bascule tout de suite (le chauffage et les capteurs ouvrent seulement leur fiche) */
+function tapToggles(d){return!d.pending&&!d.offline&&(d.kind==='light'||d.kind==='plug'||d.kind==='tv'||d.kind==='speaker');}
+function toggleDev(d){
+  const s=d.s;
+  if(d.kind==='light')hub('light',s.on?'turn_off':'turn_on',d);
+  else if(d.kind==='tv')hub('media_player',s.on?'turn_off':'turn_on',d);
+  else if(d.kind==='speaker')hub('media_player',s.playing?'media_pause':'media_play',d);
+  else if(d.kind==='plug')hub('switch',s.on?'turn_off':'turn_on',d);
+  else if(d.kind==='radiator'||d.kind==='climate')hub('climate','set_hvac_mode',d,{hvac_mode:s.on?'off':'heat'});
+  else if(d.kind==='cover')hub('cover',s.pos>0?'close_cover':'open_cover',d);
+  else if(camPowered(d))hub('switch',s.on?'turn_off':'turn_on',d);
+}
+function heating(d){return!d.pending&&d.s.on&&d.s.target>air[d.zone]+0.12;}
+function alarmChanged(){
+  document.body.classList.toggle('alarm',alarm.state==='triggered');
+  $('#live').textContent='Alarme : '+AL[alarm.state]+(alarm.cause?' · '+alarm.cause:'');
+  refreshChips();measure();
+  if(ui.sel==='alarm')renderSheet();
+}
+function setAlarm(service,code,remember){
+  if(!ha.cfg){
+    alarm.state=service==='alarm_disarm'?'disarmed':service==='alarm_arm_home'?'armed_home':'armed_away';
+    alarm.cause='';alarm.last='alarm_control_panel.'+service;
+    alarmChanged();
+    return;
+  }
+  /* Alarmo exige un code pour désarmer : saisi par l'utilisateur, mémorisé seulement s'il le demande */
+  let saved=false;
+  if(service==='alarm_disarm'&&code==null){
+    code=localStorage.getItem(CODE_KEY);
+    if(!code){askCode('');return;}
+    saved=true;
+  }
+  const name='alarm_control_panel.'+service,data={entity_id:ALARM_ENTITY};
+  if(code!=null)data.code=String(code);
+  alarm.last=name+' · '+(ha.ready?'envoi…':'en attente');
+  if(ui.sel==='alarm')renderSheet();
+  haCall('alarm_control_panel',service,data,m=>{
+    if(m.success){
+      alarm.last=name+' · ok';
+      if(remember)localStorage.setItem(CODE_KEY,String(code));
+    }else{
+      const err=haErrTxt(m);
+      alarm.last=name+' · erreur : '+err;haFlash('Alarme : '+err);
+      if(service==='alarm_disarm'&&m.error&&m.error.code){
+        if(saved)localStorage.removeItem(CODE_KEY);
+        askCode((saved?'Code mémorisé refusé : ':'Code refusé : ')+err);
+      }
+    }
+    alarmChanged();
+  });
+}
+function alarmCheck(d){
+  if(ha.cfg)return;
+  if(alarm.state==='armed_away'||(alarm.state==='armed_home'&&d.kind==='door')){
+    alarm.state='triggered';alarm.at=Date.now();
+    alarm.cause=d.kind==='door'?d.name+' ouverte':d.name;
+    alarmChanged();
+  }
+}
+function triggerMotion(d){
+  d.s.active=true;d.s.until=performance.now()+6500;d.s.since=Date.now();d.last='état reçu · on';
+  alarmCheck(d);
+}
+function simulate(d){
+  if(d.kind==='door'){
+    d.s.open=!d.s.open;d.s.since=Date.now();d.last='état reçu · '+(d.s.open?'on':'off');
+    if(d.s.open)alarmCheck(d);
+  }else triggerMotion(d);
+}
+const SPOTS=['entree','couloir','cuis1'];
+const off=ids=>ids.forEach(k=>hub('light','turn_off',byId[k],null,1));
+const SCENES={
+  cine(){
+    hub('light','turn_on',byId.led1,{brightness_pct:22,rgb_color:[90,110,255]},1);
+    hub('light','turn_on',byId.led2,{brightness_pct:14,rgb_color:[169,139,255]},1);
+    off(['lamp','cuis2'].concat(SPOTS));
+    hub('media_player','select_source',byId.tv,{source:'Netflix'},1);
+    hub('media_player','media_play',byId.arc,null,1);
+    hub('media_player','media_pause',byId.era,null,1);
+  },
+  detente(){
+    hub('light','turn_on',byId.led1,{brightness_pct:55,rgb_color:[255,170,60]},1);
+    hub('light','turn_on',byId.led2,{brightness_pct:45,rgb_color:[255,116,96]},1);
+    hub('light','turn_on',byId.lamp,{brightness_pct:50,rgb_color:WARM},1);
+    hub('light','turn_on',byId.cuis2,{brightness_pct:40,rgb_color:WARM},1);
+    off(SPOTS);
+    hub('media_player','turn_off',byId.tv,null,1);
+    hub('media_player','media_pause',byId.arc,null,1);
+    hub('media_player','media_play',byId.era,null,1);
+  },
+  off(){
+    off(lamps().map(d=>d.id));
+    hub('media_player','turn_off',byId.tv,null,1);
+    hub('media_player','media_pause',byId.arc,null,1);
+    hub('media_player','media_pause',byId.era,null,1);
+  }
+};
+function setScene(id){
+  ui.scene=id;
+  document.querySelectorAll('[data-scene]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.scene===id)));
+}
+
+/* ---------- WebGL ---------- */
+const canvas=$('#gl');
+const gl=canvas.getContext('webgl',{antialias:true,alpha:false,powerPreference:'low-power'});
+if(!gl){$('#nogl').hidden=false;canvas.style.display='none';}
+
+const NL=16;
+const PREC='#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n';
+const VS_MAIN='attribute vec3 aPos;attribute vec3 aNor;attribute vec3 aCol;uniform mat4 uVP;uniform mat4 uModel;varying vec3 vW;varying vec3 vN;varying vec3 vC;void main(){vec4 w=uModel*vec4(aPos,1.0);vW=w.xyz;vN=(uModel*vec4(aNor,0.0)).xyz;vC=aCol;gl_Position=uVP*w;}';
+const FS_MAIN=PREC+[
+'#define NL '+NL,
+'uniform vec3 uSunDir;uniform vec3 uSunCol;uniform vec3 uFillDir;uniform vec3 uFillCol;uniform vec3 uAmbSky;uniform vec3 uAmbGnd;',
+'uniform vec3 uBgTop;uniform vec3 uBgBot;uniform float uH;',
+'uniform vec4 uLA[NL];uniform vec3 uLB[NL];uniform vec3 uLC[NL];',
+'uniform vec3 uTint;uniform vec3 uEmis;uniform float uEmisMix;uniform float uAlpha;',
+'varying vec3 vW;varying vec3 vN;varying vec3 vC;',
+'void main(){',
+' vec3 n=normalize(vN);',
+' vec3 light=mix(uAmbGnd,uAmbSky,n.y*0.5+0.5)+uSunCol*max(dot(n,uSunDir),0.0)+uFillCol*max(dot(n,uFillDir),0.0);',
+' for(int i=0;i<NL;i++){',
+'  vec3 a=uLA[i].xyz;vec3 ab=uLB[i]-a;',
+'  float t=clamp(dot(vW-a,ab)/max(dot(ab,ab),0.0001),0.0,1.0);',
+'  vec3 L=a+ab*t-vW;',
+'  float d=length(L);',
+'  float att=clamp(1.0-d/uLA[i].w,0.0,1.0);',
+'  light+=uLC[i]*att*att*(max(dot(n,L/max(d,0.001)),0.0)*0.8+0.2);',
+' }',
+' float m=max(light.r,max(light.g,light.b));',
+' if(m>1.3){light*=(1.3+(m-1.3)*0.35)/m;}',
+' vec3 col=vC*uTint*light;',
+' if(abs(n.y)<0.5&&vW.y>-0.02){col*=mix(0.84,1.0,smoothstep(0.0,0.5,vW.y));}',
+' col=mix(col,uEmis,uEmisMix);',
+' float f=1.0-smoothstep(-4.4,-0.45,vW.y);',
+' vec3 bg=mix(uBgBot,uBgTop,smoothstep(0.0,1.0,gl_FragCoord.y/uH));',
+' gl_FragColor=vec4(mix(col,bg,f),uAlpha);',
+'}'].join('\n');
+const VS_GLOW='attribute vec3 aPos;attribute vec3 aNor;attribute vec3 aCol;uniform mat4 uVP;varying vec3 vUV;varying vec3 vC;void main(){vUV=aNor;vC=aCol;gl_Position=uVP*vec4(aPos,1.0);}';
+const FS_GLOW='precision mediump float;varying vec3 vUV;varying vec3 vC;void main(){float dx=max(max(-vUV.x,vUV.x-vUV.z),0.0);float d2=dx*dx+vUV.y*vUV.y;float a=max(exp(-d2*4.0)-0.0183,0.0);gl_FragColor=vec4(vC*a,1.0);}';
+const VS_BG='attribute vec3 aPos;void main(){gl_Position=vec4(aPos.xy,0.0,1.0);}';
+const FS_BG=PREC+'uniform vec3 uBgTop;uniform vec3 uBgBot;uniform float uH;uniform float uPx;uniform float uNight;uniform float uTime;void main(){float y=gl_FragCoord.y/uH;vec3 c=mix(uBgBot,uBgTop,smoothstep(0.0,1.0,y));vec2 g=floor(gl_FragCoord.xy/(uPx*2.0));float h=fract(sin(dot(g,vec2(12.9898,78.233)))*43758.5453);float s=step(0.9982,h)*uNight*smoothstep(0.45,1.0,y)*(0.55+0.45*sin(uTime*1.3+h*900.0));gl_FragColor=vec4(c+vec3(s*0.6),1.0);}';
+
+function program(vs,fs,names){
+  const p=gl.createProgram();
+  [[gl.VERTEX_SHADER,vs],[gl.FRAGMENT_SHADER,fs]].forEach(([t,src])=>{
+    const s=gl.createShader(t);gl.shaderSource(s,src);gl.compileShader(s);
+    if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))console.error(gl.getShaderInfoLog(s));
+    gl.attachShader(p,s);
+  });
+  gl.bindAttribLocation(p,0,'aPos');gl.bindAttribLocation(p,1,'aNor');gl.bindAttribLocation(p,2,'aCol');
+  gl.linkProgram(p);
+  if(!gl.getProgramParameter(p,gl.LINK_STATUS))console.error(gl.getProgramInfoLog(p));
+  const u={};names.forEach(n=>{u[n]=gl.getUniformLocation(p,n);});
+  return{p,u};
+}
+
+/* ---------- géométrie ---------- */
+function Geo(){this.a=[];}
+Geo.prototype.v=function(p,n,c){this.a.push(p[0],p[1],p[2],n[0],n[1],n[2],c[0],c[1],c[2]);};
+Geo.prototype.quad=function(p,q,r,s,n,c){this.v(p,n,c);this.v(q,n,c);this.v(r,n,c);this.v(p,n,c);this.v(r,n,c);this.v(s,n,c);};
+Geo.prototype.box=function(x0,y0,z0,x1,y1,z1,c,top){
+  this.quad([x0,y1,z0],[x0,y1,z1],[x1,y1,z1],[x1,y1,z0],[0,1,0],top||c);
+  this.quad([x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1],[0,0,1],c);
+  this.quad([x0,y0,z0],[x1,y0,z0],[x1,y1,z0],[x0,y1,z0],[0,0,-1],c);
+  this.quad([x1,y0,z0],[x1,y0,z1],[x1,y1,z1],[x1,y1,z0],[1,0,0],c);
+  this.quad([x0,y0,z0],[x0,y0,z1],[x0,y1,z1],[x0,y1,z0],[-1,0,0],c);
+  return this;
+};
+Geo.prototype.plate=function(x0,z0,x1,z1,y,c){this.quad([x0,y,z0],[x0,y,z1],[x1,y,z1],[x1,y,z0],[0,1,0],c);return this;};
+Geo.prototype.prism=function(cx,cz,y0,y1,r0,r1,n,c,top){
+  const ny=(r0-r1)/(y1-y0);
+  for(let i=0;i<n;i++){
+    const a0=i/n*6.2832,a1=(i+1)/n*6.2832,am=(a0+a1)/2;
+    const c0=Math.cos(a0),s0=Math.sin(a0),c1=Math.cos(a1),s1=Math.sin(a1);
+    this.quad([cx+c0*r0,y0,cz+s0*r0],[cx+c1*r0,y0,cz+s1*r0],[cx+c1*r1,y1,cz+s1*r1],[cx+c0*r1,y1,cz+s0*r1],V.norm([Math.cos(am),ny,Math.sin(am)]),c);
+    if(r1>0.001){const t=top||c;this.v([cx,y1,cz],[0,1,0],t);this.v([cx+c0*r1,y1,cz+s0*r1],[0,1,0],t);this.v([cx+c1*r1,y1,cz+s1*r1],[0,1,0],t);}
+  }
+  return this;
+};
+Geo.prototype.octa=function(r,h,c){
+  const T=[0,h,0],B=[0,-h,0],P=[[r,0,0],[0,0,r],[-r,0,0],[0,0,-r]];
+  for(let i=0;i<4;i++){
+    const p=P[i],q=P[(i+1)%4],mx=(p[0]+q[0])/2,mz=(p[2]+q[2])/2,l=Math.hypot(mx,mz);
+    const nu=V.norm([mx/l*h,r*0.7071,mz/l*h]),nd=[nu[0],-nu[1],nu[2]];
+    this.v(p,nu,c);this.v(q,nu,c);this.v(T,nu,c);
+    this.v(p,nd,c);this.v(q,nd,c);this.v(B,nd,c);
+  }
+  return this;
+};
+Geo.prototype.ring=function(r0,r1,n,c){
+  for(let i=0;i<n;i++){
+    const a0=i/n*6.2832,a1=(i+1)/n*6.2832,c0=Math.cos(a0),s0=Math.sin(a0),c1=Math.cos(a1),s1=Math.sin(a1);
+    this.quad([c0*r0,0,s0*r0],[c1*r0,0,s1*r0],[c1*r1,0,s1*r1],[c0*r1,0,s0*r1],[0,1,0],c);
+  }
+  return this;
+};
+/* pose un objet modélisé face à +z, tourné de ry autour de la verticale */
+Geo.prototype.put=function(sub,tx,tz,ry){
+  const c=Math.cos(ry),s=Math.sin(ry),a=sub.a;
+  for(let i=0;i<a.length;i+=9)this.a.push(c*a[i]+s*a[i+2]+tx,a[i+1],-s*a[i]+c*a[i+2]+tz,c*a[i+3]+s*a[i+5],a[i+4],-s*a[i+3]+c*a[i+5],a[i+6],a[i+7],a[i+8]);
+  return this;
+};
+
+const H=0.8; /* hauteur de coupe des murs */
+function hwall(g,z,x0,x1,t,gaps,c,top){
+  let xs=x0;(gaps||[]).forEach(q=>{if(q[0]>xs)g.box(xs,0,z-t/2,q[0],H,z+t/2,c,top);xs=q[1];});
+  if(x1>xs)g.box(xs,0,z-t/2,x1,H,z+t/2,c,top);
+}
+function vwall(g,x,z0,z1,t,gaps,c,top){
+  let zs=z0;(gaps||[]).forEach(q=>{if(q[0]>zs)g.box(x-t/2,0,zs,x+t/2,H,q[0],c,top);zs=q[1];});
+  if(z1>zs)g.box(x-t/2,0,zs,x+t/2,H,z1,c,top);
+}
+function tiles(g,x0,z0,x1,z1,sx,sz,cols,y){
+  const nx=Math.max(1,Math.round((x1-x0)/sx)),nz=Math.max(1,Math.round((z1-z0)/sz)),dx=(x1-x0)/nx,dz=(z1-z0)/nz;
+  for(let i=0;i<nx;i++)for(let j=0;j<nz;j++)g.plate(x0+i*dx,z0+j*dz,x0+(i+1)*dx,z0+(j+1)*dz,y||0,cols[(i*(cols.length>2?5:1)+j)%cols.length]);
+}
+function rail(g,x0,z0,x1,z1,c){
+  const n=Math.max(1,Math.round(Math.hypot(x1-x0,z1-z0)/0.4)),s=0.018,hy=0.55;
+  for(let i=0;i<=n;i++){const x=lerp(x0,x1,i/n),z=lerp(z0,z1,i/n);g.box(x-s,0,z-s,x+s,hy,z+s,c);}
+  g.box(Math.min(x0,x1)-s*1.6,hy,Math.min(z0,z1)-s*1.6,Math.max(x0,x1)+s*1.6,hy+0.04,Math.max(z0,z1)+s*1.6,c);
+}
+function plant(g,x,z,s,C){
+  g.prism(x,z,0,0.3*s,0.12*s,0.17*s,8,C.pot,C.soil);
+  g.prism(x,z,0.3*s,0.8*s,0.3*s,0.2*s,6,C.leaf1,C.leaf2);
+  g.prism(x,z,0.8*s,1.2*s,0.2*s,0.0,6,C.leaf2);
+}
+function table(g,x0,z0,x1,z1,h,C,Ct){
+  g.box(x0,h-0.05,z0,x1,h,z1,Ct);
+  [[x0+0.04,z0+0.04],[x1-0.09,z0+0.04],[x0+0.04,z1-0.09],[x1-0.09,z1-0.09]].forEach(p=>g.box(p[0],0,p[1],p[0]+0.05,h-0.05,p[1]+0.05,C));
+}
+function chairGeo(C,Ct){
+  const g=new Geo(),w=0.21;
+  [[-w,-w],[w-0.04,-w],[-w,w-0.04],[w-0.04,w-0.04]].forEach(p=>g.box(p[0],0,p[1],p[0]+0.04,0.42,p[1]+0.04,C));
+  g.box(-w,0.42,-w,w,0.47,w,C,Ct);
+  g.box(-w,0.47,-w,w,0.9,-w+0.04,C,Ct);
+  return g;
+}
+function armchairGeo(C,Cd,Cl){
+  const g=new Geo();
+  g.box(-0.38,0,-0.36,0.38,0.36,0.36,C);
+  g.box(-0.38,0.36,-0.36,0.38,0.78,-0.2,Cd,C);
+  g.box(-0.38,0.36,-0.2,-0.26,0.54,0.36,Cd,C);
+  g.box(0.26,0.36,-0.2,0.38,0.54,0.36,Cd,C);
+  g.box(-0.26,0.36,-0.2,0.26,0.42,0.34,Cl);
+  return g;
+}
+function shelf(g,x0,z0,x1,z1,C,Ct,cols,gap){
+  g.box(x0,0,z0,x1,0.9,z1,C,Ct);
+  const ax=(x1-x0)>(z1-z0),o=ax?x0:z0,len=(ax?x1-x0:z1-z0)-0.08,n=Math.round(len/0.11),d=len/n;
+  for(let i=0;i<n;i++){
+    const a=o+0.04+i*d,b=a+d-0.015,h=0.94+0.08*Math.abs(Math.sin(i*2.3+1)),c=cols[(i*3+(i>>1))%cols.length];
+    if(gap&&b>gap[0]&&a<gap[1])continue;
+    if(ax)g.box(a,0.9,z0+0.05,b,h,z1-0.05,c);else g.box(x0+0.05,0.9,a,x1-0.05,h,b,c);
+  }
+}
+function crib(g,x0,z0,x1,z1,C,Ct){
+  const p=0.04,h=0.8;
+  [[x0,z0],[x1-p,z0],[x0,z1-p],[x1-p,z1-p]].forEach(q=>g.box(q[0],0,q[1],q[0]+p,h,q[1]+p,C,Ct));
+  g.box(x0,h-0.04,z0,x1,h,z0+p,C,Ct);g.box(x0,h-0.04,z1-p,x1,h,z1,C,Ct);
+  g.box(x0,h-0.04,z0,x0+p,h,z1,C,Ct);g.box(x1-p,h-0.04,z0,x1,h,z1,C,Ct);
+  let n=Math.round((z1-z0)/0.13);
+  for(let i=1;i<n;i++){const z=lerp(z0,z1-0.02,i/n);g.box(x0+0.01,0.28,z,x0+0.03,h-0.04,z+0.02,C);g.box(x1-0.03,0.28,z,x1-0.01,h-0.04,z+0.02,C);}
+  n=Math.round((x1-x0)/0.13);
+  for(let i=1;i<n;i++){const x=lerp(x0,x1-0.02,i/n);g.box(x,0.28,z0+0.01,x+0.02,h-0.04,z0+0.03,C);g.box(x,0.28,z1-0.03,x+0.02,h-0.04,z1-0.01,C);}
+  g.box(x0+0.02,0.22,z0+0.02,x1-0.02,0.34,z1-0.02,hex('#FFFFFF'));
+  g.box(x0+0.04,0.34,z0+0.55,x1-0.04,0.37,z1-0.05,hex('#F7E3B5'));
+}
+function radGeo(len){
+  const g=new Geo(),A=hex('#FFFDF8'),B=hex('#E7E1D8'),n=Math.max(4,Math.round(len/0.1)),d=len/n;
+  for(let i=0;i<n;i++)g.box(i*d+0.01,0.14,0,(i+1)*d-0.01,0.6,0.07,i%2?B:A,A);
+  g.box(0,0.11,0.005,len,0.15,0.065,B);g.box(0,0.59,0.005,len,0.63,0.065,A);
+  g.box(len+0.01,0.12,0,len+0.11,0.21,0.08,hex('#F3F5F6'));
+  return g;
+}
+function towelGeo(len){
+  const g=new Geo(),A=hex('#FFFDF8');
+  g.box(0,0.12,0.01,0.03,0.98,0.05,A);g.box(len-0.03,0.12,0.01,len,0.98,0.05,A);
+  for(let i=0;i<8;i++){const y=0.17+i*0.1;g.box(0.03,y,0.012,len-0.03,y+0.04,0.048,A);}
+  g.box(len+0.01,0.12,0,len+0.1,0.21,0.07,hex('#F3F5F6'));
+  return g;
+}
+
+function buildStatic(){
+  const g=new Geo();
+  const WALL=hex('#F2DFCD'),WTOP=hex('#FFF5E8'),WOOD=hex('#E4C7A6'),WOODT=hex('#F0DABF');
+  const CREAM=hex('#F6EDE2'),WHITE=hex('#FFFFFF'),TEAL=hex('#4F9E9B'),TEAL2=hex('#62B4AE'),TEALD=hex('#458F8D');
+  const CORAL=hex('#E98D80'),CORALT=hex('#F09C8F'),DARK=hex('#272C37'),STONE=hex('#CDBBA6'),STEEL=hex('#DCE5E8'),FRAME=hex('#FBF4EA');
+  const MUST=hex('#EBC66A'),LAV=hex('#B9A8E0'),SAND=hex('#EFD9BC'),SANDD=hex('#E3C9A6');
+  const BOOKS=[CORAL,TEAL2,CREAM,MUST,LAV,TEALD];
+  const PL={pot:CORAL,soil:hex('#8A6A5C'),leaf1:hex('#5FAE8A'),leaf2:hex('#7FC79D')};
+  const PW={pot:WHITE,soil:PL.soil,leaf1:PL.leaf1,leaf2:PL.leaf2};
+
+  /* socle flottant */
+  g.box(-0.5,-0.35,-1.25,6.5,-0.03,12.7,hex('#EDC3AC'),hex('#F3D6C2'));
+  g.box(-0.2,-1.15,-0.95,6.2,-0.35,12.4,hex('#E99C86'));
+  g.box(0.35,-2.4,-0.4,5.65,-1.15,11.85,hex('#DD856F'));
+  g.box(1.0,-4.6,0.3,5.0,-2.4,11.15,hex('#CF7263'));
+  /* palier et escalier devant la porte d'entrée */
+  const ST=hex('#EBCDB8'),STT=hex('#F8E6D7');
+  g.box(6.5,-0.35,4.15,7.45,-0.03,5.7,ST,STT);
+  for(let i=0;i<10;i++){const y=-0.03-(i+1)*0.17,z=5.7+i*0.3;g.box(6.5,y-0.4,z,7.45,y,z+0.3,ST,STT);}
+  g.box(6.5,-2.2,8.7,7.45,-1.9,9.75,ST,STT);
+
+  /* sols */
+  tiles(g,0,0,3.05,3.4,3.05,3.4,[hex('#CDC1EA')]);
+  tiles(g,3.05,0,6,3.4,2.95,3.4,[hex('#C0DAC3')]);
+  tiles(g,0,3.9,2.15,5.7,0.36,0.36,[hex('#8ECBD8'),hex('#DDF0F3')]);
+  tiles(g,2.6,4.85,4,5.7,0.35,0.42,[hex('#B9DFE6'),hex('#E3F2F4')]);
+  tiles(g,2.15,3.4,4,4.85,0.46,0.48,[hex('#EFD3C2'),hex('#E8C7B4')]);
+  tiles(g,4,3.9,6,7.1,0.5,0.53,[hex('#EFD3C2'),hex('#E8C7B4')]);
+  tiles(g,0,5.7,4,11.4,0.2,5.7,[hex('#E7C7A2'),hex('#DFBC95'),hex('#ECD0AE')]);
+  tiles(g,4,7.1,6,11.4,0.5,0.54,[hex('#A6D6CF'),hex('#EAF4EF')]);
+  tiles(g,0,-0.95,2.6,-0.16,0.43,0.4,[hex('#DDA48D'),hex('#D39781')],-0.02);
+  tiles(g,0,11.56,2.5,12.4,0.42,0.42,[hex('#DDA48D'),hex('#D39781')],-0.02);
+
+  /* murs extérieurs */
+  hwall(g,-0.08,-0.16,6.16,0.16,[[1.5,2.5],[4.3,5.4]],WALL,WTOP);
+  hwall(g,11.48,-0.16,6.16,0.16,[[1.0,2.45],[4.6,5.7]],WALL,WTOP);
+  vwall(g,-0.08,0,11.4,0.16,null,WALL,WTOP);
+  vwall(g,6.08,0,11.4,0.16,[[4.45,5.4]],WALL,WTOP);
+  /* cloisons */
+  hwall(g,3.4,0,6,0.1,[[2.2,2.95],[3.15,3.9]],WALL,WTOP);
+  vwall(g,3.05,0,3.35,0.1,null,WALL,WTOP);
+  vwall(g,2.15,3.9,5.7,0.1,[[4.0,4.75]],WALL,WTOP);
+  hwall(g,4.85,2.2,4,0.1,[[3.0,3.7]],WALL,WTOP);
+  vwall(g,4,3.9,5.7,0.1,[[4.0,4.75]],WALL,WTOP);
+  hwall(g,5.7,0,4.05,0.1,null,WALL,WTOP);
+  /* cadres fins des ouvertures pleine taille : montants + linteau */
+  [[1.0,2.45,11.44],[4.6,5.7,11.44],[1.5,2.5,-0.04],[4.3,5.4,-0.04]].forEach(o=>{const f=0.04,z0=o[2]-0.03,z1=o[2]+0.03;
+    g.box(o[0],0,z0,o[0]+f,H,z1,FRAME);g.box(o[1]-f,0,z0,o[1],H,z1,FRAME);g.box(o[0]+f,H-f,z0,o[1]-f,H,z1,FRAME);});
+  hwall(g,7.1,4,6,0.1,[[4.35,5.2]],WALL,WTOP);
+  vwall(g,4,7.05,11.4,0.1,null,WALL,WTOP);
+  g.box(2.2,0,4.9,2.6,H,5.65,WALL,WTOP);          /* gaine technique */
+  g.box(5.4,0,7.15,6,H,7.7,WALL,WTOP);            /* gaine cuisine */
+  g.box(0,0,3.45,2.15,H,3.9,WOOD,WOODT);          /* placard chambre */
+  g.box(4,0,3.45,6,H,3.9,WOOD,WOODT);             /* placard entrée */
+
+  /* balcons */
+  const RAIL=hex('#FBF4EA');
+  rail(g,0.02,-0.2,0.02,-0.93,RAIL);rail(g,0.02,-0.93,2.58,-0.93,RAIL);rail(g,2.58,-0.93,2.58,-0.2,RAIL);
+  rail(g,0.02,11.6,0.02,12.38,RAIL);rail(g,0.02,12.38,2.48,12.38,RAIL);rail(g,2.48,12.38,2.48,11.6,RAIL);
+  plant(g,0.38,12.02,0.7,PL);
+  plant(g,2.25,-0.55,0.62,PL);
+
+  /* chambre parents */
+  g.box(0.03,0,0.84,0.12,0.95,2.4,WOOD,WOODT);
+  g.box(0.12,0,0.92,2.17,0.3,2.32,CREAM);
+  g.box(0.14,0.3,0.94,2.15,0.45,2.3,WHITE);
+  g.box(0.8,0.3,0.93,2.16,0.48,2.31,CORAL,CORALT);
+  g.box(0.2,0.45,1.0,0.6,0.55,1.56,WHITE);g.box(0.2,0.45,1.68,0.6,0.55,2.24,WHITE);
+  g.box(0.05,0,0.44,0.43,0.42,0.82,WOOD,WOODT);g.box(0.05,0,2.42,0.43,0.42,2.8,WOOD,WOODT);
+  g.prism(0.24,0.63,0.42,0.6,0.07,0.1,8,hex('#F7E3B5'));
+  plant(g,0.22,0.2,0.7,PW);
+  table(g,2.56,0.98,3.0,2.32,0.73,WOOD,WOODT);                                   /* bureau */
+  g.box(2.83,0.73,1.59,2.93,0.78,1.71,DARK);g.box(2.86,0.78,1.24,2.9,1.2,2.06,DARK);
+  g.box(2.852,0.8,1.26,2.86,1.18,2.04,hex('#59688A'));
+  g.put(chairGeo(TEAL,TEAL2),2.36,1.65,PI/2);
+  /* chambre Joud */
+  g.put(armchairGeo(SAND,SANDD,CREAM),3.76,0.66,PI/4);
+  shelf(g,3.12,1.2,3.46,2.55,WOOD,WOODT,BOOKS,[2.24,2.46]);
+  g.box(3.245,0.9,2.33,3.335,1.0,2.37,WHITE);g.box(3.262,0.925,2.37,3.318,0.985,2.374,hex('#3A404C'));
+  g.box(4.8,0,0.04,5.5,0.85,0.68,CREAM,WHITE);g.box(4.86,0.85,0.1,5.44,0.9,0.62,hex('#BFE3DC'));
+  g.box(5.52,0,0.04,5.96,0.85,0.68,WOOD,WOODT);
+  g.prism(5.76,0.2,0.85,0.88,0.065,0.065,12,WHITE);g.prism(5.76,0.2,0.88,1.0,0.05,0.05,12,WHITE);
+  g.box(5.735,0.92,0.245,5.785,0.97,0.256,DARK);
+  crib(g,5.08,1.25,5.94,2.65,FRAME,WHITE);
+  /* salle de bain et WC */
+  g.box(0.04,0,3.98,0.75,0.52,5.62,WHITE);g.plate(0.12,4.06,0.67,5.54,0.524,hex('#BDE6EE'));
+  g.box(0.85,0,5.2,2.08,0.7,5.64,CREAM);g.plate(0.95,5.27,1.4,5.57,0.704,STEEL);g.plate(1.56,5.27,2.0,5.57,0.704,STEEL);
+  g.box(2.64,0,5.06,2.82,0.72,5.54,WHITE);g.box(2.82,0,5.13,3.28,0.4,5.47,WHITE,hex('#F1F4F5'));
+  g.box(3.76,0.48,5.12,3.95,0.6,5.48,WHITE);g.plate(3.79,5.16,3.93,5.44,0.604,STEEL);
+  /* entrée */
+  table(g,4.07,4.92,4.36,5.68,0.7,WOOD,WOODT);
+  g.prism(4.21,5.1,0.7,0.88,0.05,0.07,8,CORAL,CORALT);
+  g.box(5.42,0,5.5,5.96,1.25,7.04,WOOD,WOODT);
+  /* salle à manger */
+  table(g,0.52,6.07,2.34,6.86,0.75,WOOD,WOODT);
+  [[1.16,5.98,0],[1.9,5.98,0],[1.12,6.98,PI],[1.98,6.98,PI],[0.36,6.47,PI/2],[2.5,6.47,-PI/2]].forEach(c=>g.put(chairGeo(WOOD,TEAL2),c[0],c[1],c[2]));
+  plant(g,0.22,5.98,0.7,PW);
+  /* salon */
+  plant(g,3.5,7.56,1.15,PL);
+  g.box(2.98,0,7.9,3.87,0.4,10.5,TEAL);g.box(2.2,0,9.7,2.98,0.4,10.5,TEAL);                      /* canapé d'angle */
+  g.box(3.65,0.4,7.9,3.87,0.82,10.5,TEALD,TEAL);g.box(2.2,0.4,10.3,3.65,0.82,10.5,TEALD,TEAL);
+  g.box(2.98,0.4,7.9,3.65,0.6,8.08,TEALD,TEAL);g.box(2.2,0.4,9.7,2.36,0.6,10.3,TEALD,TEAL);
+  g.box(3.0,0.4,8.1,3.63,0.47,8.88,TEAL2);g.box(3.0,0.4,8.92,3.63,0.47,9.68,TEAL2);g.box(2.38,0.4,9.72,3.63,0.47,10.28,TEAL2);
+  g.box(3.38,0.47,8.14,3.62,0.72,8.44,CORAL);g.box(2.4,0.47,10.04,2.7,0.72,10.27,MUST);
+  g.box(0.03,0,8.2,0.48,0.38,10.0,CREAM);                                                           /* meuble télé */
+  g.box(0.2,0.38,9.0,0.3,0.5,9.2,DARK);g.box(0.2,0.5,8.45,0.25,1.26,9.75,DARK);
+  g.box(0.3,0.38,8.53,0.415,0.467,9.67,hex('#F4F4F0'));                                             /* Sonos Arc */
+  g.put(armchairGeo(CORAL,hex('#D97F73'),CORALT),0.74,10.82,PI*0.75);
+  g.prism(3.74,10.72,0,0.03,0.17,0.17,12,FRAME);g.box(3.725,0.03,10.705,3.755,1.3,10.735,FRAME);   /* pied du lampadaire */
+  shelf(g,2.52,11.02,3.86,11.38,WOOD,WOODT,BOOKS,[3.09,3.31]);
+  g.box(3.155,0.9,11.18,3.245,1.0,11.22,WHITE);g.box(3.172,0.925,11.176,3.228,0.985,11.18,hex('#3A404C'));
+  g.box(0,0.47,7.57,0.03,0.63,7.73,hex('#E4DDD3'));                                                 /* thermostat à venir */
+  /* supports des rubans LED */
+  [[0.06,5.86,0],[4.1,5.86,0],[4.1,3.98,0],[0.06,7.1,0],[4.0,7.1,H],[5.94,7.1,H]].forEach(p=>g.box(p[0]-0.02,p[2],p[1]-0.02,p[0]+0.02,1.39,p[1]+0.02,FRAME));
+  /* cuisine */
+  g.box(5.44,0,7.72,5.96,1.3,8.42,hex('#E3E8EA'),hex('#F1F4F5'));
+  g.box(5.42,0,8.45,5.96,0.72,11.36,CREAM);g.box(5.4,0.72,8.45,5.96,0.76,11.36,STONE);
+  g.plate(5.5,9.45,5.9,10.05,0.764,hex('#343943'));g.plate(5.5,10.35,5.88,10.95,0.764,STEEL);
+  g.box(5.86,0.76,10.61,5.9,0.95,10.69,STEEL);
+  g.prism(5.82,8.66,0.76,0.94,0.085,0.085,14,hex('#2E333D'),hex('#3A404C'));                        /* Sonos Era 100 */
+  table(g,4.07,8.78,4.66,9.79,0.73,WOOD,WOODT);
+  g.box(4.06,0,7.55,4.36,0.8,7.97,CREAM,WHITE);
+  /* capteurs */
+  g.box(2.5,H,-0.13,2.62,H+0.06,-0.03,WHITE);
+  g.box(6.03,H,5.4,6.13,H+0.06,5.52,WHITE);
+  g.box(2.45,H,11.43,2.57,H+0.06,11.53,WHITE);
+  g.prism(3.05,1.05,H,H+0.09,0.075,0.035,10,WHITE);
+  g.prism(3.95,4.82,H,H+0.09,0.075,0.035,10,WHITE);
+  g.prism(5.88,3.84,H,H+0.09,0.075,0.035,10,WHITE);
+  g.prism(5.5,8.47,1.02,1.11,0.06,0.03,10,WHITE);
+  return g;
+}
+
+/* ---------- scène ---------- */
+const opaque=[],transp=[];
+let P_MAIN,P_GLOW,P_BG,bufGlow,bufBg;
+const dyn={};
+function mesh(g){const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(g.a),gl.STATIC_DRAW);return{b,n:g.a.length/9};}
+function item(m,o){const it=Object.assign({mesh:m,m:IDENT,tint:[1,1,1],emis:[0,0,0],mix:0,alpha:1,show:true},o||{});(it.alpha<1||it.blend?transp:opaque).push(it);return it;}
+
+/* un équipement non relié est dessiné en transparence : il change de liste de rendu quand on le relie */
+function setLayer(it,transparent){
+  const from=transparent?opaque:transp,to=transparent?transp:opaque,i=from.indexOf(it);
+  if(i>=0){from.splice(i,1);to.push(it);}
+}
+function syncPending(){
+  devices.forEach(d=>{
+    if(d.marker){d.marker.alpha=d.pending?0.6:1;setLayer(d.marker,d.pending);}
+    if(d.spots&&d.fx){d.fx.alpha=d.pending?0.5:1;d.fx.tint=d.pending?[0.85,0.82,0.95]:[1,1,1];setLayer(d.fx,d.pending);}
+  });
+}
+function initScene(){
+  P_MAIN=program(VS_MAIN,FS_MAIN,['uVP','uModel','uSunDir','uSunCol','uFillDir','uFillCol','uAmbSky','uAmbGnd','uBgTop','uBgBot','uH','uLA[0]','uLB[0]','uLC[0]','uTint','uEmis','uEmisMix','uAlpha']);
+  P_GLOW=program(VS_GLOW,FS_GLOW,['uVP']);
+  P_BG=program(VS_BG,FS_BG,['uBgTop','uBgBot','uH','uPx','uNight','uTime']);
+  gl.enableVertexAttribArray(0);gl.enableVertexAttribArray(1);gl.enableVertexAttribArray(2);
+  bufGlow=gl.createBuffer();
+  bufBg=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,bufBg);
+  const q=[];[[-1,-1],[1,-1],[-1,1],[1,1]].forEach(p=>q.push(p[0],p[1],0,0,0,0,0,0,0));
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(q),gl.STATIC_DRAW);
+
+  item(mesh(buildStatic()));
+  const W=[1,1,1],GREY=hex('#9AA3AB');
+  /* luminaires */
+  byId.led1.fx=item(mesh(new Geo().box(0.06,1.39,5.83,4.13,1.45,5.89,GREY).box(4.07,1.39,3.96,4.13,1.45,5.83,GREY)));
+  byId.led2.fx=item(mesh(new Geo().box(0.06,1.39,7.07,5.94,1.45,7.13,GREY)));
+  byId.cuis2.fx=item(mesh(new Geo().box(5.97,H,8.45,6.03,H+0.06,11.36,GREY)));
+  byId.lamp.fx=item(mesh(new Geo().prism(3.74,10.72,1.3,1.6,0.21,0.14,12,hex('#F3E7D6'))));
+  devices.forEach(d=>{
+    if(!d.spots)return;
+    const g=new Geo();d.spots.forEach(p=>g.prism(p[0],p[1],1.34,1.39,0.085,0.085,12,GREY));
+    d.fx=item(mesh(g));
+  });
+  dyn.screen=item(mesh(new Geo().box(0.25,0.53,8.48,0.257,1.23,9.72,hex('#1B1F28'))));
+  dyn.ecran=item(mesh(new Geo().box(2.845,0.82,1.28,2.852,1.16,2.02,hex('#2A3142'))));
+  dyn.camDot=item(mesh(new Geo().box(5.75,0.975,0.245,5.77,0.99,0.258,hex('#59606B'))));
+  /* radiateurs à tête connectée */
+  const R=(geo,tx,tz,ry)=>item(mesh(new Geo().put(geo,tx,tz,ry)));
+  byId.rad_salon.fx=R(radGeo(0.9),0,11.28,PI/2);
+  byId.rad_cuisine.fx=R(radGeo(0.8),4.05,11.32,PI/2);
+  byId.rad_parents.fx=R(radGeo(0.7),3.0,0.12,-PI/2);
+  byId.rad_joud.fx=R(radGeo(0.7),3.1,0.82,PI/2);
+  byId.rad_sdb.fx=R(towelGeo(0.5),0.95,3.9,0);
+  const unit=mesh(new Geo().box(-0.5,0,-0.5,0.5,1,0.5,W));
+  dyn.eqArc=[0,1,2,3,4].map(()=>item(unit,{mix:1}));
+  dyn.eqEra=[0,1,2].map(()=>item(unit,{mix:1}));
+  /* ouvrants */
+  dyn.doorEn=item(mesh(new Geo().box(0,0,-0.035,0.95,H,0.035,hex('#D2604F'),hex('#E57F6E'))));
+  const glass=hex('#CFEFF5');
+  dyn.doorCh=item(mesh(new Geo().box(0,0,-0.02,1.0,H,0.02,glass)),{alpha:0.5});
+  item(mesh(new Geo().box(1.0,0,11.47,1.74,H,11.5,glass)),{alpha:0.5});
+  dyn.doorBa=item(mesh(new Geo().box(0,0,11.425,0.73,H,11.455,glass)),{alpha:0.5});
+  item(mesh(new Geo().box(4.3,0,-0.055,5.4,H,-0.025,glass)),{alpha:0.45});   /* fenêtre Joud */
+  item(mesh(new Geo().box(4.6,0,11.425,5.7,H,11.455,glass)),{alpha:0.45});  /* fenêtre cuisine (mur sud) */
+  /* volets : un tablier unité à 14 lamelles inclinées (face avant abaissée), partagé, placé et levé dans step() */
+  const sg=new Geo(),NS=14,sp=1/NS,sh=sp*0.82,tilt=0.012,SC=hex('#E7DCCB'),SE=hex('#D2C2AA');
+  for(let i=0;i<NS;i++){const y0=-0.5+tilt+i*sp;sg.box(-0.5,y0,-0.5,0.5,y0+sh,0.5,SC,SE);}
+  for(let i=0;i<sg.a.length;i+=9)if(sg.a[i+2]>0)sg.a[i+1]-=tilt;
+  const slat=mesh(sg);
+  [['volet_salon',1.725,11.56,1.45,0],['volet_parents',2.0,-0.14,1.0,0],['volet_joud',4.85,-0.14,1.1,0],['volet_cuisine',5.15,11.56,1.1,0]]
+    .concat(devices.filter(d=>d.custom&&d.kind==='cover').map(d=>[d.id,d.mark[0],d.mark[2],0.9,0]))
+    .forEach(c=>{const d=byId[c[0]];d.cv={x:c[1],z:c[2],w:c[3],ry:c[4]};d.fx=item(slat);});
+  const ring=mesh(new Geo().ring(0.86,1,40,W));
+  MOTION.forEach(d=>{d.rings=[0,1].map(()=>item(ring,{mix:1,alpha:0,blend:true}));});
+  /* repères flottants */
+  const dia=mesh(new Geo().octa(1,1.45,W));
+  devices.forEach(d=>{d.marker=item(dia,{mix:0.82});d.mcol=[0.5,0.55,0.62];});
+  syncPending();
+  GONE.forEach(d=>{if(d.fx)d.fx.show=false;});
+}
+
+/* lumières réelles de la scène (segments) et halos */
+const P3=(x,y,z)=>[x,y,z];
+const LIGHTS=[
+  {dev:'led1',A:[0.2,1.36,5.86],B:[4.0,1.36,5.86],R:3.2,I:1.7},
+  {dev:'led1',A:[4.1,1.36,5.8],B:[4.1,1.36,4.05],R:2.6,I:1.5},
+  {dev:'led2',A:[0.2,1.36,7.1],B:[5.85,1.36,7.1],R:3.2,I:1.7},
+  {dev:'lamp',A:[3.74,1.32,10.72],B:[3.74,1.32,10.72],R:3.8,I:1.8},
+  {dev:'tv',A:[0.5,0.9,8.55],B:[0.5,0.9,9.65],R:2.8,I:0.85},
+  {dev:'ecran',A:[2.55,0.95,1.4],B:[2.55,0.95,1.9],R:1.5,I:0.55},
+  {dev:'cuis2',A:[5.9,0.95,8.5],B:[5.9,0.95,11.3],R:1.9,I:1.4}
+];
+const GLOWS=[
+  {dev:'led1',A:[0.1,1.42,5.86],B:[4.1,1.42,5.86],r:0.42,k:0.55},
+  {dev:'led1',A:[4.1,1.42,5.86],B:[4.1,1.42,4.0],r:0.42,k:0.55},
+  {dev:'led2',A:[0.1,1.42,7.1],B:[5.9,1.42,7.1],r:0.42,k:0.55},
+  {dev:'lamp',A:[3.74,1.46,10.72],B:[3.74,1.46,10.72],r:0.85,k:0.5},
+  {dev:'tv',A:[0.27,0.88,8.6],B:[0.27,0.88,9.6],r:0.5,k:0.3},
+  {dev:'ecran',A:[2.83,1.0,1.38],B:[2.83,1.0,1.92],r:0.38,k:0.2},
+  {dev:'cuis2',A:[6.0,0.84,8.5],B:[6.0,0.84,11.3],r:0.3,k:0.45}
+];
+/* chaque groupe de spots éclaire la scène ; un équipement non relié reste simplement éteint */
+devices.forEach(d=>{
+  if(!d.spots)return;
+  d.spots.forEach(p=>GLOWS.push({dev:d.id,A:P3(p[0],1.37,p[1]),B:P3(p[0],1.37,p[1]),r:0.5,k:0.45}));
+  const a=d.spots[0],b=d.spots[d.spots.length-1];
+  LIGHTS.push({dev:d.id,A:P3(a[0],1.3,a[1]),B:P3(b[0],1.3,b[1]),R:d.spots.length>1?2.6:2.4,I:1.5});
+});
+if(LIGHTS.length>NL)LIGHTS.length=NL;
+const TVPAL={TV:['#6FA8FF','#BFD8FF','#8FE0D0'],Netflix:['#FF6B5E','#FFB08A','#C24A5A'],YouTube:['#FF8A73','#FFE0B0','#7FD6C0'],Console:['#9B7BFF','#5AD1FF','#FF8FD0']};
+Object.keys(TVPAL).forEach(k=>{TVPAL[k]=TVPAL[k].map(hex);});
+
+devices.concat(GONE).forEach(d=>{
+  const s=d.s;
+  d.v={level:d.kind==='light'?(s.on?s.bri/100:0):(isOn(d)?1:0),rgb:s.rgb?rgbf(s.rgb):[1,1,1],open:s.open?1:0,pos:s.pos||0,pulse:0,heat:0};
+});
+
+/* ---------- caméra ---------- */
+const C0=[3.3,0.35,5.75];
+const BB=[[-0.3,6.9],[-0.5,1.95],[-1.1,12.55]];
+const cam={az:0.785,el:0.6155,zoom:1,pan:[0,0],homing:false,az0:0.785,el0:0.6155,right:[1,0,0],up:[0,1,0],vp:IDENT,ppu:30};
+let vw=1,vh=1,dpr=1,narrow=true,padT=110,padB=96,padTg=110,padBg=96,dayCur=0,lastT=0;
+function defaults(){
+  const portrait=vw/vh<0.8;
+  cam.az0=portrait?0.42:0.785;cam.el0=portrait?0.8:0.6155;
+}
+function camUpdate(dt){
+  if(cam.homing){
+    const k=RM?1:1-Math.exp(-dt*3.4);
+    cam.az=lerp(cam.az,cam.az0,k);cam.el=lerp(cam.el,cam.el0,k);cam.zoom=lerp(cam.zoom,1,k);
+    cam.pan[0]=lerp(cam.pan[0],0,k);cam.pan[1]=lerp(cam.pan[1],0,k);
+    if(Math.abs(cam.az-cam.az0)<0.002&&Math.abs(cam.zoom-1)<0.002&&Math.abs(cam.el-cam.el0)<0.002)cam.homing=false;
+  }
+  const kp=RM?1:1-Math.exp(-dt*9);
+  padT=lerp(padT,padTg,kp);padB=lerp(padB,padBg,kp);
+  const ce=Math.cos(cam.el),se=Math.sin(cam.el),sa=Math.sin(cam.az),ca=Math.cos(cam.az);
+  const z=[sa*ce,se,ca*ce],x=[ca,0,-sa],y=V.cross(z,x);
+  let mx=0,my=0;
+  for(let i=0;i<8;i++){
+    const p=[BB[0][i&1]-C0[0],BB[1][(i>>1)&1]-C0[1],BB[2][(i>>2)&1]-C0[2]];
+    mx=Math.max(mx,Math.abs(V.dot(p,x)));my=Math.max(my,Math.abs(V.dot(p,y)));
+  }
+  const freeH=Math.max(140,vh-padT-padB);
+  cam.ppu=Math.min((vw-20)/(2*mx),freeH/(2*my))*cam.zoom;
+  const hw=vw/(2*cam.ppu),hh=vh/(2*cam.ppu),offY=(padB-padT)/2/cam.ppu;
+  const eye=[C0[0]+z[0]*60,C0[1]+z[1]*60,C0[2]+z[2]*60];
+  const view=mLook(eye,x,y,z);
+  const proj=mOrtho(-hw-cam.pan[0],hw-cam.pan[0],-hh-offY-cam.pan[1],hh-offY-cam.pan[1],36,84);
+  cam.vp=mMul(proj,view);cam.right=x;cam.up=y;
+}
+function toScreen(p){
+  const m=cam.vp;
+  return[((m[0]*p[0]+m[4]*p[1]+m[8]*p[2]+m[12])*0.5+0.5)*vw,(1-((m[1]*p[0]+m[5]*p[1]+m[9]*p[2]+m[13])*0.5+0.5))*vh];
+}
+/* inverse de toScreen à hauteur y fixée : la projection est orthographique, il reste un système 2×2 en x et z */
+function screenToWorld(sx,sy,y){
+  const m=cam.vp,nx=(sx/vw)*2-1,ny=1-(sy/vh)*2,det=m[0]*m[9]-m[8]*m[1];
+  if(Math.abs(det)<1e-9)return null;
+  const r0=nx-m[4]*y-m[12],r1=ny-m[5]*y-m[13];
+  return[(r0*m[9]-m[8]*r1)/det,(m[0]*r1-m[1]*r0)/det];
+}
+function pick(x,y,rad){
+  let best=null,bd=rad;
+  devices.forEach(d=>{
+    d.hits.concat([d.mark]).forEach(h=>{const s=toScreen(h),dd=Math.hypot(s[0]-x,s[1]-y);if(dd<bd){bd=dd;best=d;}});
+  });
+  return best;
+}
+
+/* ---------- simulation et animation ---------- */
+const sim={motionIn:7,uiIn:1};
+const MSIZE={light:1,plug:0.95,tv:1,speaker:1,camera:0.9,door:0.85,motion:0.85,radiator:0.85,thermo:0.8,climate:0.8,cover:0.85};
+function markColor(d){
+  const s=d.s,OFF=[0.47,0.54,0.62],IDLE=[0.8,0.85,0.9];
+  if(d.pending)return[0.66,0.63,0.78];
+  switch(d.kind){
+    case'light':return s.on?mix3(rgbf(s.rgb),[1,1,1],0.2):OFF;
+    case'tv':case'camera':case'plug':return s.on?[0.55,0.76,1]:OFF;
+    case'speaker':return s.playing?[0.56,0.9,0.69]:OFF;
+    case'door':return s.open?[1,0.5,0.42]:[0.56,0.89,0.69];
+    case'motion':return s.active?[1,0.83,0.42]:IDLE;
+    case'thermo':return IDLE;
+    case'cover':return s.pos>0?[0.53,0.81,0.98]:IDLE;
+    default:return!s.on?OFF:heating(d)?[1,0.66,0.36]:IDLE;
+  }
+}
+function tvColor(t,src){
+  const p=TVPAL[src]||TVPAL.TV,f=t*0.22,i=Math.floor(f)%p.length;
+  return mix3(p[i],p[(i+1)%p.length],f-Math.floor(f));
+}
+const frameU={la:new Float32Array(NL*4),lb:new Float32Array(NL*3),lc:new Float32Array(NL*3),night:1};
+function step(dt,t){
+  const k=RM?1:1-Math.exp(-dt*7),kd=RM?1:1-Math.exp(-dt*2.6);
+  dayCur=lerp(dayCur,ui.mode==='day'?1:0,kd);
+  devices.forEach((d,i)=>{
+    const s=d.s,v=d.v;
+    if(d.kind==='light'){
+      const c=capsOf(d),lit=!d.pending&&s.on;
+      v.level=lerp(v.level,lit?(c==='onoff'?1:s.bri/100):0,k);
+      v.rgb=mix3(v.rgb,rgbf(c==='rgb'||c==='ct'||c==='rgbct'?s.rgb:WARM),k);
+      d.fx.emis=mix3(v.rgb,[1,1,1],0.15+0.3*v.level);d.fx.mix=clamp(v.level*8,0,1)*0.95;
+    }else if(d.kind==='tv'||d.kind==='speaker'||d.kind==='camera'||d.kind==='plug'){v.level=lerp(v.level,!d.pending&&isOn(d)?1:0,k);}
+    else if(d.kind==='door'){v.open=lerp(v.open,s.open?1:0,RM?1:1-Math.exp(-dt*4.5));}
+    else if(d.kind==='cover'){
+      v.pos=lerp(v.pos,s.pos,RM?1:1-Math.exp(-dt*3));
+      const c=d.cv;d.fx.m=mTRS(c.x,0.42+(v.pos/100)*0.84,c.z,c.ry,c.w,0.84,0.035);
+    }
+    d.mcol=mix3(d.mcol,markColor(d),k);
+    const sel=ui.sel===d.id||ui.sel==='cfg:'+d.id,sz=clamp(6.6/cam.ppu,0.09,0.26)*MSIZE[d.kind]*(d.pending?0.85:1)*(sel?1.4:1);
+    const bob=RM?0:Math.sin(t*1.7+i*1.3)*0.04,rot=RM?0.6:t*(sel?2.2:0.8)+i;
+    const pulse=(d.kind==='door'&&s.open)||(d.kind==='motion'&&s.active)?1+0.16*Math.sin(t*6):1;
+    d.marker.m=mTRS(d.mark[0],d.mark[1]+sz*0.9+bob,d.mark[2],rot,sz*pulse,sz*pulse,sz*pulse);
+    d.marker.emis=d.mcol;
+  });
+  /* chauffage : chaque pièce dérive lentement vers la consigne de son radiateur */
+  RADS.forEach(d=>{
+    if(!d.pending&&!ha.cfg)air[d.zone]+=((d.s.on?d.s.target:17.5)-air[d.zone])*dt*0.012;
+    d.v.heat=lerp(d.v.heat,heating(d)?1:0,k);
+    d.fx.emis=[1,0.6,0.34];d.fx.mix=d.v.heat*0.3;
+  });
+  /* détecteurs : passages simulés tant que la maison n'est pas vide */
+  let changed=false;
+  sim.motionIn-=dt;
+  if(sim.motionIn<=0){
+    sim.motionIn=14+Math.random()*18;
+    /* avec Home Assistant, ce sont les vrais détecteurs qui parlent */
+    const live=MOTION.filter(m=>!m.pending);
+    if(live.length&&!ha.cfg&&(alarm.state==='disarmed'||alarm.state==='armed_home')){triggerMotion(live[(Math.random()*live.length)|0]);changed=true;}
+  }
+  MOTION.forEach(mo=>{
+    if(mo.s.active&&performance.now()>mo.s.until){mo.s.active=false;mo.last='état reçu · off';changed=true;}
+    mo.v.pulse=lerp(mo.v.pulse,mo.s.active?1:0,k);
+    mo.rings.forEach((it,i)=>{
+      const ph=RM?0.6:((t*0.55+i*0.5)%1),sc=0.12+ph*0.6;
+      it.m=mTRS(mo.ring[0],0.02,mo.ring[1],0,sc,1,sc);
+      it.alpha=mo.v.pulse*(1-ph)*0.9;it.emis=[1,0.83,0.42];it.show=it.alpha>0.01;
+    });
+  });
+  sim.uiIn-=dt;
+  if(sim.uiIn<=0||changed){sim.uiIn=2;refreshUI(true);}
+
+  /* visuels */
+  const tv=byId.tv;tv.v.rgb=tvColor(t,tv.s.source);dyn.screen.emis=mix3(tv.v.rgb,[1,1,1],0.25);dyn.screen.mix=tv.v.level*0.95;
+  dyn.camDot.emis=[0.45,0.95,0.6];dyn.camDot.mix=byId.cam.v.level;
+  const ec=byId.ecran;ec.v.rgb=[0.7,0.82,1];dyn.ecran.emis=[0.66,0.8,1];dyn.ecran.mix=ec.v.level*0.92;
+  const eq=(arr,d,x,y,z0,dz)=>{
+    const lvl=d.v.level,vol=0.55+d.s.vol/100;
+    arr.forEach((it,i)=>{
+      const h=lvl*vol*(0.03+0.11*Math.abs(Math.sin(t*(RM?0:3.1+i*0.83)+i*1.9)));
+      it.show=lvl>0.02;it.m=mTRS(x,y,z0+i*dz,0,0.045,Math.max(h,0.001),0.045);it.emis=[0.62,0.93,0.74];
+    });
+  };
+  eq(dyn.eqArc,byId.arc,0.357,0.47,8.7,0.2);
+  eq(dyn.eqEra,byId.era,5.82,0.95,8.59,0.07);
+  /* ouvrants */
+  dyn.doorEn.m=mTRS(6.08,0,4.45,-1.5708-byId.door_en.v.open*1.3,1,1,1);
+  dyn.doorCh.m=mTRS(1.5,0,-0.08,-byId.door_ch.v.open*1.25,1,1,1);
+  dyn.doorBa.m=mTRS(1.72-byId.door_ba.v.open*0.68,0,0,0,1,1,1);
+  /* lumières */
+  const boost=lerp(1,0.34,dayCur),la=frameU.la,lb=frameU.lb,lc=frameU.lc;
+  LIGHTS.forEach((L,i)=>{
+    const v=byId[L.dev].v,kk=Math.pow(v.level,0.75)*L.I*boost;
+    la[i*4]=L.A[0];la[i*4+1]=L.A[1];la[i*4+2]=L.A[2];la[i*4+3]=L.R;
+    lb[i*3]=L.B[0];lb[i*3+1]=L.B[1];lb[i*3+2]=L.B[2];
+    lc[i*3]=v.rgb[0]*kk;lc[i*3+1]=v.rgb[1]*kk;lc[i*3+2]=v.rgb[2]*kk;
+  });
+  frameU.night=1-dayCur;
+}
+
+/* ---------- météo extérieure : Home Assistant (met.no, Météo-France, sun.sun) + qualité de l'air Open-Meteo ---------- */
+const WX_MAIN='weather.forecast_home',WX_MF='weather.meteo_france_forecast_for_city_rueil_malmaison_ile_de_france_92_fr_rueil_malmaison';
+const WX_UV=/^sensor\.meteo_france.*_uv$/,WX_RAINP=/^sensor\.meteo_france.*_rain_chance$/;
+const AQ_KEY='neoplex.aq',AQ_EVERY=15*60000;
+const AQ_URL='https://air-quality-api.open-meteo.com/v1/air-quality?latitude=48.8925&longitude=2.1697&current=european_aqi,pm2_5,pm10,ozone,nitrogen_dioxide&timezone=Europe%2FParis';
+const WX={raw:'',cond:'',label:'',storm:false,temp:null,hum:null,cloud:0,coverage:null,wind:null,gust:null,windDir:null,uv:null,press:null,dew:null,
+  rain:0,snow:false,aqi:null,pm25:null,pm10:null,o3:null,no2:null,apparent:null,sunAz:null,sunEl:null,src:'',demo:'',off:false,rainChance:null,precip:null};
+const WX_KEY='neoplex.wx';
+/* condition HA → [condition normalisée, intensité de pluie, neige] */
+const WX_NORM={rainy:['rain',0.5,0],pouring:['rain',1,0],'lightning-rainy':['rain',1,0],hail:['rain',1,0],'snowy-rainy':['snow',0.5,1],snowy:['snow',0,1],
+  fog:['fog',0,0],cloudy:['cloud',0,0],'windy-variant':['cloud',0,0],lightning:['cloud',0,0],exceptional:['cloud',0,0],
+  partlycloudy:['partly',0,0],windy:['partly',0,0],sunny:['clear',0,0],'clear-night':['clear',0,0]};
+const WX_CLOUD={clear:0,partly:40,cloud:85,rain:100,snow:100,fog:90};
+const WX_FR={'clear-night':'Nuit claire',sunny:'Ensoleillé',partlycloudy:'Éclaircies',cloudy:'Nuageux',rainy:'Pluie',pouring:'Forte pluie',
+  'lightning-rainy':'Orages',lightning:'Orages secs',hail:'Grêle',snowy:'Neige','snowy-rainy':'Pluie et neige',fog:'Brouillard',
+  windy:'Venteux','windy-variant':'Venteux et nuageux',exceptional:'Exceptionnel'};
+/* mode démo : ?wx=clear|partly|cloudy|rain|storm|snow|fog force la condition sans toucher aux données HA */
+const WX_DEMO={clear:['sunny',0],partly:['partlycloudy',40],cloudy:['cloudy',85],rain:['rainy',100],storm:['lightning-rainy',100],snow:['snowy',100],fog:['fog',90]};
+const wxNum=v=>{const n=parseFloat(v);return isFinite(n)?n:null;};
+function wxWatch(id){return domOf(id)==='weather'||id==='sun.sun'||WX_UV.test(id)||WX_RAINP.test(id);}
+function wxUpdate(){
+  const S=ha.states,ok=st=>st&&st.state!=='unavailable'&&st.state!=='unknown';
+  const mf=ok(S[WX_MF])?S[WX_MF]:null;
+  const main=ok(S[WX_MAIN])?S[WX_MAIN]:mf||Object.keys(S).filter(k=>domOf(k)==='weather'&&ok(S[k])).map(k=>S[k])[0]||null;
+  const a=main&&main.attributes||{},b=mf&&mf.attributes||{};
+  const pick=k=>wxNum(a[k])!=null?wxNum(a[k]):wxNum(b[k]),pickMf=k=>wxNum(b[k])!=null?wxNum(b[k]):wxNum(a[k]);
+  WX.src=main?main.entity_id:'';WX.raw=main?main.state:'';
+  WX.temp=pick('temperature');WX.hum=pick('humidity');WX.press=pick('pressure');WX.dew=pick('dew_point');
+  WX.wind=pick('wind_speed');WX.windDir=pick('wind_bearing');WX.coverage=pick('cloud_coverage');
+  WX.gust=pickMf('wind_gust_speed');WX.apparent=pickMf('apparent_temperature');
+  WX.uv=pick('uv_index');
+  if(WX.uv==null){const u=Object.keys(S).filter(k=>WX_UV.test(k)).map(k=>wxNum(S[k].state)).filter(v=>v!=null);WX.uv=u.length?u[0]:null;}
+  WX.precip=pickMf('precipitation');
+  const rp=Object.keys(S).filter(k=>WX_RAINP.test(k)).map(k=>wxNum(S[k].state)).filter(v=>v!=null);WX.rainChance=rp.length?rp[0]:null;
+  const sa=S['sun.sun']&&S['sun.sun'].attributes||{};
+  WX.sunAz=wxNum(sa.azimuth);WX.sunEl=wxNum(sa.elevation);
+  wxNormalize();
+}
+function wxNormalize(){
+  const dm=WX.demo?WX_DEMO[WX.demo]:null,raw=dm?dm[0]:WX.raw,n=WX_NORM[raw]||[raw?'cloud':'',0,0];
+  WX.cond=n[0];WX.rain=n[1];WX.snow=!!n[2];WX.storm=raw==='lightning-rainy';
+  /* couverture nuageuse absente : estimée depuis la condition */
+  WX.cloud=dm?dm[1]:WX.coverage!=null?clamp(WX.coverage,0,100):(WX_CLOUD[WX.cond]||0);
+  WX.label=raw?(WX_FR[raw]||raw)+(dm?' (démo)':''):'Pas de données';
+}
+/* qualité de l'air : rafraîchie toutes les 15 min, gardée sur le téléphone, échec silencieux */
+function aqApply(c){if(!c)return;WX.aqi=wxNum(c.european_aqi);WX.pm25=wxNum(c.pm2_5);WX.pm10=wxNum(c.pm10);WX.o3=wxNum(c.ozone);WX.no2=wxNum(c.nitrogen_dioxide);}
+function aqFetch(){
+  if(typeof fetch!=='function')return;
+  fetch(AQ_URL).then(r=>r.ok?r.json():null).then(j=>{
+    if(!j||!j.current)return;
+    aqApply(j.current);
+    try{localStorage.setItem(AQ_KEY,JSON.stringify({t:Date.now(),c:j.current}));}catch(_){}
+    refreshUI(true);
+  }).catch(()=>{});
+}
+function aqLoop(delay){setTimeout(()=>{aqFetch();aqLoop(AQ_EVERY);},delay);}
+function wxInit(){
+  let q='';try{q=(new URLSearchParams(location.search).get('wx')||'').toLowerCase();}catch(_){}
+  if(WX_DEMO[q])WX.demo=q;
+  try{WX.off=localStorage.getItem(WX_KEY)==='off';}catch(_){}
+  let age=Infinity;
+  try{const c=JSON.parse(localStorage.getItem(AQ_KEY)||'null');if(c&&c.c){aqApply(c.c);age=Date.now()-(c.t||0);}}catch(_){}
+  wxNormalize();
+  aqLoop(Math.max(0,AQ_EVERY-age));
+}
+
+/* ---------- météo : effets 3D autour de l'appartement (base x −0.5→6.5, z −1.25→12.7) ---------- */
+const wxV={cloud:0,rain:0,snow:0,fog:0,storm:0,sun:0,moon:0,flash:0,nextFlash:6,dx:0,dz:1,sp:0,tilt:0};
+let wxSeed=11;
+const wxRnd=()=>(wxSeed=(wxSeed*16807)%2147483647)/2147483647;
+const WX_CLOUDS=[];
+/* les nuages restent en anneau autour de l'île : jamais au-dessus de l'empreinte élargie de la base (caméra plongeante) */
+const wxInBase=(x,z)=>x>=-1.2&&x<=7.2&&z>=-2&&z<=13.4;
+function wxCloudOut(q){do{q.x=-8+wxRnd()*22;q.z=-8+wxRnd()*28;}while(wxInBase(q.x,q.z));return q;}
+for(let i=0;i<18;i++)WX_CLOUDS.push({...wxCloudOut({}),y:4.5+wxRnd()*4.5,r:(1.1+wxRnd()*0.9)*1.3,l:(1.2+wxRnd()*2.2)*1.3,k:0.6+wxRnd()*0.4});
+const WX_NDROP=640,WX_DROPS=[];
+/* gouttes et flocons tombent autour de la base, jamais dedans */
+function wxDrop(p,top){
+  do{p.x=-8+Math.random()*22;p.z=-8+Math.random()*28;}while(p.x>-0.7&&p.x<6.7&&p.z>-1.45&&p.z<12.9);
+  p.y=top?8:-1+Math.random()*9;p.ph=Math.random()*6.283;return p;
+}
+for(let i=0;i<WX_NDROP;i++)WX_DROPS.push(wxDrop({},false));
+function wxSunPos(){
+  /* hors connexion, le mode démo place un soleil (jour) ou une lune (nuit) fictifs */
+  const fake=WX.sunEl==null&&WX.demo;
+  return{az:fake?200:WX.sunAz,el:fake?(ui.mode==='day'?35:-35):WX.sunEl};
+}
+function wxStep(dt,t,snap){
+  if(WX.off)return;   /* effet extérieur désactivé : rien n'évolue ni ne se dessine */
+  const k=RM||snap?1:1-Math.exp(-dt*1.2),c=WX.cond,sp=wxSunPos();
+  wxV.cloud=lerp(wxV.cloud,c&&c!=='clear'?WX.cloud/100:0,k);
+  wxV.rain=lerp(wxV.rain,WX.rain,k);wxV.snow=lerp(wxV.snow,WX.snow?1:0,k);wxV.fog=lerp(wxV.fog,c==='fog'?1:0,k);
+  wxV.storm=lerp(wxV.storm,WX.storm?1:0,k);
+  const vis=c==='clear'?1:c==='partly'?0.65:0;
+  wxV.sun=lerp(wxV.sun,sp.el!=null&&sp.el>0?vis:0,k);
+  wxV.moon=lerp(wxV.moon,sp.el!=null&&sp.el<0?vis:0,k);
+  /* le vent souffle depuis wind_bearing (0 = nord = −z, 90 = est = +x) : nuages et pluie partent à l'opposé */
+  const b=(WX.windDir||0)*PI/180,ms=(WX.wind||0)/3.6;
+  wxV.dx=-Math.sin(b);wxV.dz=Math.cos(b);wxV.sp=RM?0:Math.max(0.04,ms*0.06);wxV.tilt=Math.min(1.2,ms/6);
+  WX_CLOUDS.forEach(q=>{
+    q.x+=wxV.dx*wxV.sp*dt;q.z+=wxV.dz*wxV.sp*dt;
+    const ox=q.x,oz=q.z;
+    if(q.x>14)q.x-=22;else if(q.x<-8)q.x+=22;
+    if(q.z>20)q.z-=28;else if(q.z<-8)q.z+=28;
+    /* recyclé dans l'empreinte : on le repousse sur le bord le plus proche (gauche/droite ou devant/derrière) */
+    if((q.x!==ox||q.z!==oz)&&wxInBase(q.x,q.z)){
+      const dl=q.x+1.2,dr=7.2-q.x,dn=q.z+2,df=13.4-q.z,m=Math.min(dl,dr,dn,df);
+      if(m===dl)q.x=-1.3;else if(m===dr)q.x=7.3;else if(m===dn)q.z=-2.1;else q.z=13.5;
+    }
+  });
+  if(Math.max(wxV.rain,wxV.snow)>0.01&&!RM){
+    const vy=wxV.snow>wxV.rain?1.3:9;
+    WX_DROPS.forEach(p=>{p.y-=vy*dt;if(p.y<-1)wxDrop(p,true);});
+  }
+  /* éclairs : flash de 0,1 s toutes les 6 à 12 s, seulement par temps d'orage */
+  wxV.flash=Math.max(0,wxV.flash-dt);
+  if(WX.storm&&!RM){wxV.nextFlash-=dt;if(wxV.nextFlash<=0){wxV.flash=0.1;wxV.nextFlash=6+Math.random()*6;}}
+}
+/* le ciel vire vers une teinte de ciel couvert (gris clair, gris-bleu de pluie, gris d'orage, gris chaud de brouillard),
+   assombrie la nuit ; ciel clair inchangé ; l'éclair le blanchit */
+const WX_OVC=hex('#c3ccd2'),WX_RAINC=hex('#8fa0ad'),WX_POUR=hex('#5d6a75'),WX_STORMC=hex('#434d57'),WX_FOGC=hex('#a8a49c');
+const wxSs=(a,b,x)=>{const u=clamp((x-a)/(b-a),0,1);return u*u*(3-2*u);};
+function wxSky(top,bot){
+  if(WX.off)return;
+  const wr=wxSs(0,0.5,wxV.rain),c=mix3(mix3(WX_OVC,mix3(WX_RAINC,WX_POUR,wxSs(0.5,1,wxV.rain)),wr),WX_STORMC,wxV.storm);
+  const o=mix3(c,WX_FOGC,wxV.fog),n=lerp(0.26,1,dayCur),f=wxV.flash>0?0.55:0;
+  const w=Math.max(0.8*wxSs(0.15,0.9,wxV.cloud),0.9*wr,0.95*wxV.storm,0.9*wxV.fog);
+  for(let i=0;i<3;i++){
+    top[i]=lerp(lerp(top[i],o[i]*n,w),0.92,f);
+    bot[i]=lerp(lerp(bot[i],Math.min(1,o[i]*n*1.05),w),0.88,f);
+  }
+}
+/* composition « over » avec le shader additif : 1) assombrit le fond de a, 2) ajoute couleur×a */
+function wxOver(mode,dark,lit){
+  gl.blendFunc(gl.ZERO,gl.ONE_MINUS_SRC_COLOR);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(dark),gl.DYNAMIC_DRAW);bindLayout();gl.drawArrays(mode,0,dark.length/9);
+  gl.blendFunc(gl.ONE,gl.ONE);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(lit),gl.DYNAMIC_DRAW);bindLayout();gl.drawArrays(mode,0,lit.length/9);
+}
+function wxDraw(t){
+  if(WX.off)return;
+  const arr=[],sp=wxSunPos();
+  /* brouillard : voile plein écran de la couleur du ciel, par-dessus la maison */
+  if(wxV.fog>0.01){
+    gl.disable(gl.DEPTH_TEST);gl.useProgram(P_BG.p);gl.uniform1f(P_BG.u.uNight,0);
+    gl.bindBuffer(gl.ARRAY_BUFFER,bufBg);bindLayout();
+    gl.blendColor(0,0,0,0.4*wxV.fog);gl.blendFunc(gl.CONSTANT_ALPHA,gl.ONE_MINUS_CONSTANT_ALPHA);
+    gl.drawArrays(gl.TRIANGLE_STRIP,0,4);gl.enable(gl.DEPTH_TEST);
+  }
+  /* soleil ou lune : disque doux et halo */
+  if((wxV.sun>0.01||wxV.moon>0.01)&&sp.el!=null&&sp.az!=null){
+    const moon=wxV.moon>wxV.sun,s=moon?wxV.moon:wxV.sun,az=(sp.az+(moon?180:0))*PI/180,el=(moon?-sp.el:sp.el)*PI/180,R=11;
+    const p=[C0[0]+Math.sin(az)*Math.cos(el)*R,C0[1]+2+Math.sin(el)*R,C0[2]-Math.cos(az)*Math.cos(el)*R];
+    const col=moon?[0.72,0.78,0.95]:[1,0.84,0.52],h=s*(moon?0.22:0.32);
+    pushGlow(arr,p,p,moon?1.5:2.6,[col[0]*h,col[1]*h,col[2]*h]);
+    pushGlow(arr,p,p,moon?0.42:0.62,[col[0]*s,col[1]*s,col[2]*s]);
+  }
+  gl.useProgram(P_GLOW.p);gl.uniformMatrix4fv(P_GLOW.u.uVP,false,cam.vp);
+  gl.bindBuffer(gl.ARRAY_BUFFER,bufGlow);
+  if(arr.length){
+    gl.blendFunc(gl.ONE,gl.ONE);
+    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(arr),gl.DYNAMIC_DRAW);bindLayout();
+    gl.drawArrays(gl.TRIANGLES,0,arr.length/9);
+  }
+  /* nuages : sprites gris-blanc opaques (composition « over »), étirés dans le sens du vent, grisés par la pluie */
+  if(wxV.cloud>0.01){
+    const ck=0.38+0.42*wxV.cloud,fl=wxV.flash>0?0.25:0,D=[],A=[];
+    const col=mix3(mix3([0.55,0.6,0.68],[0.86,0.89,0.92],dayCur),[0.48,0.53,0.6],0.35*wxV.rain+0.2*wxV.storm);
+    WX_CLOUDS.forEach(q=>{
+      const e=clamp(Math.min(q.x+8,14-q.x,q.z+8,20-q.z)/3,0,1),a=Math.min(0.95,ck*q.k*e*Math.min(1,wxV.cloud*2.5)),hx=wxV.dx*q.l/2,hz=wxV.dz*q.l/2;
+      if(a<0.003||wxInBase(q.x,q.z))return;
+      const P=[q.x-hx,q.y,q.z-hz],Q=[q.x+hx,q.y,q.z+hz];
+      pushGlow(D,P,Q,q.r,[a,a,a]);
+      pushGlow(A,P,Q,q.r,[Math.min(1,col[0]+fl)*a,Math.min(1,col[1]+fl)*a,Math.min(1,col[2]+fl)*a]);
+    });
+    if(D.length)wxOver(gl.TRIANGLES,D,A);
+  }
+  /* pluie (traits bleu-gris inclinés par le vent) ou neige (traits blancs lents qui ondulent) */
+  const snow=wxV.snow>wxV.rain,amt=snow?wxV.snow:wxV.rain;
+  if(amt>0.01){
+    const n=Math.round(WX_NDROP*amt),len=snow?0.07:0.62,o=snow?0.8:Math.min(0.9,0.5+0.5*amt);
+    const c=snow?[0.96,0.97,1]:mix3([0.62,0.7,0.82],[0.3,0.35,0.44],dayCur);
+    const ox=-wxV.dx*wxV.tilt*len,oz=-wxV.dz*wxV.tilt*len,D=[],L=[];
+    for(let i=0;i<n;i++){
+      const p=WX_DROPS[i],sw=snow&&!RM?0.18:0,x=p.x+Math.sin(t*1.1+p.ph)*sw,z=p.z+Math.cos(t*0.9+p.ph)*sw;
+      D.push(x+ox,p.y+len,z+oz,0,0,0,o,o,o,x,p.y,z,0,0,0,o,o,o);
+      L.push(x+ox,p.y+len,z+oz,0,0,0,c[0]*o,c[1]*o,c[2]*o,x,p.y,z,0,0,0,c[0]*o,c[1]*o,c[2]*o);
+    }
+    wxOver(gl.LINES,D,L);
+  }
+}
+
+/* ---------- rendu ---------- */
+const SUN=V.norm([0.38,0.8,0.55]),FILL=V.norm([-0.55,0.3,-0.4]);
+function bindLayout(){
+  gl.vertexAttribPointer(0,3,gl.FLOAT,false,36,0);
+  gl.vertexAttribPointer(1,3,gl.FLOAT,false,36,12);
+  gl.vertexAttribPointer(2,3,gl.FLOAT,false,36,24);
+}
+function drawItem(it){
+  if(!it.show)return;
+  const u=P_MAIN.u;
+  gl.bindBuffer(gl.ARRAY_BUFFER,it.mesh.b);bindLayout();
+  gl.uniformMatrix4fv(u.uModel,false,it.m);
+  gl.uniform3fv(u.uTint,it.tint);gl.uniform3fv(u.uEmis,it.emis);
+  gl.uniform1f(u.uEmisMix,it.mix);gl.uniform1f(u.uAlpha,it.alpha);
+  gl.drawArrays(gl.TRIANGLES,0,it.mesh.n);
+}
+function pushGlow(arr,A,B,r,c){
+  const R=cam.right,U=cam.up;
+  let dx=V.dot(B,R)-V.dot(A,R),dy=V.dot(B,U)-V.dot(A,U);
+  const len=Math.hypot(dx,dy);
+  if(len<1e-4){dx=1;dy=0;}else{dx/=len;dy/=len;}
+  const D=[(R[0]*dx+U[0]*dy)*r,(R[1]*dx+U[1]*dy)*r,(R[2]*dx+U[2]*dy)*r];
+  const Pp=[(-R[0]*dy+U[0]*dx)*r,(-R[1]*dy+U[1]*dx)*r,(-R[2]*dy+U[2]*dx)*r];
+  const L=len/r;
+  const q=[
+    [A[0]-D[0]-Pp[0],A[1]-D[1]-Pp[1],A[2]-D[2]-Pp[2],-1,-1],
+    [A[0]-D[0]+Pp[0],A[1]-D[1]+Pp[1],A[2]-D[2]+Pp[2],-1,1],
+    [B[0]+D[0]+Pp[0],B[1]+D[1]+Pp[1],B[2]+D[2]+Pp[2],L+1,1],
+    [B[0]+D[0]-Pp[0],B[1]+D[1]-Pp[1],B[2]+D[2]-Pp[2],L+1,-1]
+  ];
+  [0,1,2,0,2,3].forEach(i=>{const p=q[i];arr.push(p[0],p[1],p[2],p[3],p[4],L,c[0],c[1],c[2]);});
+}
+function draw(t){
+  const bgTop=mix3(hex('#0c2430'),hex('#bfe6dc'),dayCur),bgBot=mix3(hex('#1d4a50'),hex('#f6dcc6'),dayCur);
+  wxSky(bgTop,bgBot);
+  gl.viewport(0,0,canvas.width,canvas.height);
+  gl.disable(gl.DEPTH_TEST);gl.disable(gl.BLEND);gl.depthMask(true);
+  gl.useProgram(P_BG.p);
+  gl.bindBuffer(gl.ARRAY_BUFFER,bufBg);bindLayout();
+  gl.uniform3fv(P_BG.u.uBgTop,bgTop);gl.uniform3fv(P_BG.u.uBgBot,bgBot);
+  gl.uniform1f(P_BG.u.uH,canvas.height);gl.uniform1f(P_BG.u.uPx,dpr);
+  gl.uniform1f(P_BG.u.uNight,frameU.night);gl.uniform1f(P_BG.u.uTime,RM?0:t);
+  gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+
+  gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.clear(gl.DEPTH_BUFFER_BIT);
+  const u=P_MAIN.u,d=dayCur;
+  gl.useProgram(P_MAIN.p);
+  gl.uniformMatrix4fv(u.uVP,false,cam.vp);
+  gl.uniform3fv(u.uSunDir,SUN);gl.uniform3fv(u.uFillDir,FILL);
+  gl.uniform3fv(u.uSunCol,mix3([0.13,0.16,0.25],[0.62,0.57,0.5],d));
+  gl.uniform3fv(u.uFillCol,mix3([0.035,0.04,0.07],[0.13,0.15,0.22],d));
+  gl.uniform3fv(u.uAmbSky,mix3([0.27,0.33,0.46],[0.52,0.54,0.6],d));
+  gl.uniform3fv(u.uAmbGnd,mix3([0.16,0.18,0.31],[0.4,0.36,0.5],d));
+  gl.uniform3fv(u.uBgTop,bgTop);gl.uniform3fv(u.uBgBot,bgBot);gl.uniform1f(u.uH,canvas.height);
+  gl.uniform4fv(u['uLA[0]'],frameU.la);gl.uniform3fv(u['uLB[0]'],frameU.lb);gl.uniform3fv(u['uLC[0]'],frameU.lc);
+  opaque.forEach(drawItem);
+  gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);
+  transp.forEach(drawItem);
+
+  const arr=[],gk=lerp(1,0.22,dayCur);
+  GLOWS.forEach(G=>{
+    const v=byId[G.dev].v,s=Math.pow(v.level,0.6)*G.k*gk;
+    if(s>0.004)pushGlow(arr,G.A,G.B,G.r,[v.rgb[0]*s,v.rgb[1]*s,v.rgb[2]*s]);
+  });
+  if(arr.length){
+    gl.useProgram(P_GLOW.p);gl.uniformMatrix4fv(P_GLOW.u.uVP,false,cam.vp);
+    gl.blendFunc(gl.ONE,gl.ONE);
+    gl.bindBuffer(gl.ARRAY_BUFFER,bufGlow);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(arr),gl.DYNAMIC_DRAW);bindLayout();
+    gl.drawArrays(gl.TRIANGLES,0,arr.length/9);
+  }
+  wxDraw(t);
+  gl.depthMask(true);gl.disable(gl.BLEND);
+}
+
+/* ---------- étiquettes des pièces ---------- */
+const ROOMS=[['Chambre<br>parents',[1.3,0.02,2.9]],['Chambre<br>Joud',[4.5,0.02,2.0]],['Bain',[1.45,0.02,4.6],1],['WC',[3.5,0.02,5.28],1],['Couloir',[3.1,0.02,3.74],1],
+  ['Entrée',[5.15,0.02,5.0]],['Salle<br>à manger',[2.95,0.02,6.6]],['Salon',[1.5,0.02,9.3]],['Cuisine',[4.95,0.02,10.3]]];
+let labelFs='';
+const labelBox=$('#labels');
+const labelEls=ROOMS.map(r=>{const e=document.createElement('span');e.className='room';e.innerHTML=r[0];labelBox.appendChild(e);return e;});
+function placeLabels(){
+  const minor=cam.ppu>=36,fs=clamp(cam.ppu*0.29,8.5,10.5).toFixed(1)+'px';
+  labelBox.style.opacity=cam.ppu<19?'0':'1';
+  if(fs!==labelFs){labelFs=fs;labelBox.style.fontSize=fs;}
+  ROOMS.forEach((r,i)=>{
+    const s=toScreen(r[1]),e=labelEls[i];
+    e.style.transform='translate('+s[0].toFixed(1)+'px,'+s[1].toFixed(1)+'px) translate(-50%,-50%)';
+    e.style.opacity=r[2]&&!minor?'0':'';
+  });
+}
+
+/* ---------- interface ---------- */
+const sheet=$('#sheet'),sheetBody=$('#sheetBody'),dock=$('#dock');
+const svg=p=>'<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+p+'</svg>';
+const ICON={
+  light:svg('<path d="M9.5 18h5M10.5 21h3M12 3a6 6 0 0 0-3.6 10.8c.6.5.9 1.1.9 1.8h5.4c0-.7.3-1.3.9-1.8A6 6 0 0 0 12 3z"/>'),
+  tv:svg('<rect x="3" y="5" width="18" height="12" rx="1.6"/><path d="M8 20.5h8"/>'),
+  speaker:svg('<rect x="6.5" y="3" width="11" height="18" rx="2.6"/><circle cx="12" cy="14.2" r="2.8"/><path d="M12 7.2h.01"/>'),
+  door:svg('<path d="M6.5 21V4.6c0-.9.7-1.6 1.6-1.6h7.8c.9 0 1.6.7 1.6 1.6V21M4 21h16M14.3 12.4h.01"/>'),
+  motion:svg('<circle cx="12" cy="12" r="2"/><path d="M7.4 7.4a6.5 6.5 0 0 0 0 9.2M16.6 7.4a6.5 6.5 0 0 1 0 9.2M4.6 4.6a10.5 10.5 0 0 0 0 14.8M19.4 4.6a10.5 10.5 0 0 1 0 14.8"/>'),
+  climate:svg('<rect x="5" y="4" width="14" height="16" rx="3"/><circle cx="12" cy="12" r="3.2"/><path d="M12 8.8v1.2"/>'),
+  thermo:svg('<path d="M12 3.5a2.2 2.2 0 0 0-2.2 2.2v8a4 4 0 1 0 4.4 0v-8A2.2 2.2 0 0 0 12 3.5zM12 9.5v6.8"/>'),
+  radiator:svg('<path d="M6 6.5v10M10 6.5v10M14 6.5v10M18 6.5v10M4 8.5h16M4 14.5h16M7 19.5v-3M17 19.5v-3"/>'),
+  camera:svg('<rect x="3" y="7" width="12.5" height="10" rx="2"/><path d="M15.5 10.6L21 8v8l-5.5-2.6z"/>'),
+  plug:svg('<rect x="3" y="4.5" width="18" height="11.5" rx="1.6"/><path d="M12 16v3.5M8 19.5h8"/>'),
+  cover:svg('<rect x="4" y="3.5" width="16" height="17" rx="1.4"/><path d="M4 7.5h16M4 11h16M4 14.5h16M12 14.5v6"/>'),
+  gear:svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>'),
+  shield:svg('<path d="M12 3l7 2.6v5.6c0 4.3-2.9 8-7 9.8-4.1-1.8-7-5.5-7-9.8V5.6z"/>'),
+  sun:svg('<circle cx="12" cy="12" r="3.8"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/>'),
+  moon:svg('<path d="M19.5 14.2A8 8 0 0 1 9.8 4.5a8 8 0 1 0 9.7 9.7z"/>')
+};
+function since(ts){const m=Math.floor((Date.now()-ts)/60000);return m<1?'à l’instant':m<60?'depuis '+m+' min':'depuis '+Math.floor(m/60)+' h';}
+function agoTxt(ts){const m=Math.floor((Date.now()-ts)/60000);return m<1?'à l’instant':m<60?'il y a '+m+' min':'il y a '+Math.floor(m/60)+' h';}
+function stateText(d){
+  const s=d.s;
+  if(d.pending)return'Non relié';
+  if(d.offline)return'Hors ligne';
+  switch(d.kind){
+    case'plug':return s.on?'Allumé':'Éteint';
+    case'light':if(capsOf(d)==='onoff')return s.on?(d.masc?'Allumé':'Allumée'):(d.masc?'Éteint':'Éteinte');return s.on?(d.masc?'Allumé':'Allumée')+' · '+s.bri+' %':(d.masc?'Éteint':'Éteinte');
+    case'tv':return s.on?'Allumée · '+s.source:'Éteinte';
+    case'speaker':return s.playing?'Lecture · volume '+s.vol:'En pause';
+    case'camera':return camPowered(d)?(s.on?'Allumée':'Éteinte'):'En ligne';
+    case'door':return(s.open?'Ouverte ':'Fermée ')+since(s.since);
+    case'motion':return s.active?'Mouvement détecté':'Aucun mouvement';
+    case'thermo':return fr(air[d.zone])+' °C';
+    case'cover':return s.pos<=0?'Fermé':s.pos>=100?'Ouvert':'Ouvert · '+s.pos+' %';
+    default:return!s.on?'Arrêté':(heating(d)?'Chauffe':'Au repos')+' · '+fr(air[d.zone])+' °C';
+  }
+}
+function badgeColor(d){
+  if(d.pending)return'var(--ink-soft)';
+  if(d.kind==='light'&&d.s.on)return'rgb('+d.s.rgb.join(',')+')';
+  if(d.kind==='door'&&d.s.open)return'var(--accent)';
+  if(d.kind==='motion'&&d.s.active)return'var(--warm)';
+  if((d.kind==='radiator'||d.kind==='climate')&&heating(d))return'var(--warm)';
+  if(d.kind==='cover')return'var(--ink)';
+  return isOn(d)||d.kind==='door'||d.kind==='motion'||d.kind==='thermo'?'var(--ink)':'var(--ink-soft)';
+}
+function rgb2hue(c){
+  const r=c[0]/255,g=c[1]/255,b=c[2]/255,mx=Math.max(r,g,b),mn=Math.min(r,g,b),dl=mx-mn;
+  if(dl<0.001)return 30;
+  let h=mx===r?((g-b)/dl)%6:mx===g?(b-r)/dl+2:(r-g)/dl+4;
+  return Math.round((h*60+360)%360);
+}
+function hue2rgb(h){
+  const s=0.72,f=n=>{const k=(n+h/60)%6;return Math.round(255*(1-s*Math.max(0,Math.min(k,4-k,1))));};
+  return[f(5),f(3),f(1)];
+}
+function head(d,withSwitch){
+  return'<div class="shd"><span class="badge" id="badge" style="--c:'+badgeColor(d)+'">'+ICON[d.kind]+'</span>'+
+    '<div class="ttl"><h2 id="sheetTitle">'+esc(d.name)+'</h2><p><span>'+d.room+'</span> · <span id="sheetState">'+stateText(d)+'</span></p></div>'+
+    (withSwitch?'<button class="sw" id="sw-main" role="switch" aria-checked="'+isOn(d)+'" aria-label="Allumer ou éteindre : '+esc(d.name)+'" data-act="toggle"></button>':'')+
+    '<button class="x" id="sheetClose" aria-label="Fermer" data-act="close">×</button></div>';
+}
+function wires(entity,last,event){
+  return'<div class="wires"><p class="wire"><span>Entité Home Assistant</span><code>'+entity+'</code></p>'+
+    '<p class="wire"><span>'+(!ha.ready?'Démo locale':event?'Dernier événement':'Dernier appel')+'</span><code id="lastCall">'+(last||'aucun')+'</code></p></div>';
+}
+function range(id,act,min,max,val,label,out,cls,step){
+  const p=((val-min)/(max-min)*100).toFixed(1);
+  return'<div class="field"><label class="lab" for="'+id+'"><span>'+label+'</span><output id="'+id+'-out">'+out+'</output></label>'+
+    '<input type="range" id="'+id+'" min="'+min+'" max="'+max+'" value="'+val+'" data-act="'+act+'"'+(step?' step="'+step+'"':'')+(cls?' class="'+cls+'"':' style="--p:'+p+'%"')+'></div>';
+}
+function cfgLink(d){return'<button class="lnk" id="goCfg" data-act="cfg" data-id="'+d.id+'">Configurer cet équipement</button>';}
+function sheetHTML(d){
+  const s=d.s,batt=ha.cfg?'':'<p class="note">Pile du capteur : <b>'+s.batt+' %</b></p>';let h='';
+  if(d.pending){
+    return head(d,false)+'<div class="big"><strong>Non relié</strong><span>aucune entité Home Assistant</span></div>'+
+      '<p class="note">Choisis l’entité Home Assistant de cet équipement pour le voir et le piloter d’ici.</p>'+
+      '<button class="btn pri" id="goCfg" data-act="cfg" data-id="'+d.id+'">Relier une entité</button>';
+  }
+  if(d.kind==='light'){
+    const c=capsOf(d);
+    h=head(d,true);
+    if(c==='onoff')h+='<p class="note">Marche / arrêt uniquement.</p>';
+    else{
+      h+=range('bri','bri',1,100,s.bri,'Luminosité',s.bri+' %');
+      if(c==='ct')h+=range('ct','ct',2700,6500,s.k||3000,'Température de blanc',(s.k||3000)+' K','ct',100);
+      else if(c==='rgb'||c==='rgbct'){
+        h+='<div class="field"><div class="lab"><span>Couleur</span></div><div class="sws">'+
+        SWATCHES.map((w,i)=>'<button class="swt" id="swt-'+i+'" style="--c:rgb('+w[1].join(',')+')" aria-label="'+w[0]+'" aria-pressed="'+(w[1].join()===s.rgb.join())+'" data-act="rgb" data-rgb="'+w[1].join(',')+'"></button>').join('')+
+        '</div><input type="range" class="hue" id="hue" min="0" max="359" value="'+rgb2hue(s.rgb)+'" aria-label="Teinte" data-act="hue"></div>';
+        if(c==='rgbct'){
+          const mn=d.minK||2000,mx=d.maxK||6500,k=clamp(s.k||3000,mn,mx);
+          h+=range('ct','ct',mn,mx,k,'Température de blanc',k+' K','ct',100);
+        }
+      }
+    }
+  }else if(d.kind==='plug'){
+    h=head(d,true)+'<p class="note">Marche / arrêt.</p>';
+  }else if(d.kind==='tv'){
+    h=head(d,true)+'<div class="field"><div class="lab"><span>Source</span></div><div class="opts">'+
+      (d.sources||SOURCES).map((v,i)=>'<button class="opt" id="src-'+i+'" aria-pressed="'+(s.on&&s.source===v)+'" data-act="src" data-v="'+esc(v)+'">'+esc(v)+'</button>').join('')+'</div></div>'+
+      range('vol','vol',0,100,s.vol,'Volume',s.vol);
+  }else if(d.kind==='speaker'){
+    h=head(d,false)+'<button class="btn pri" id="play" data-act="toggle">'+(s.playing?'Mettre en pause':'Lancer la lecture')+'</button>'+
+      range('vol','vol',0,100,s.vol,'Volume',s.vol);
+  }else if(d.kind==='camera'){
+    const src=camSrc(d);
+    h=head(d,false)+(camPowered(d)?'<div class="field"><div class="lab" style="align-items:center"><span>Alimentation</span><button class="sw" id="sw-main" role="switch" aria-checked="'+isOn(d)+'" aria-label="Alimentation : '+esc(d.name)+'" data-act="toggle"></button></div></div>':'')+(src?'<img class="cam" id="camImg" alt="Image de la caméra" src="'+esc(src)+'" data-want="'+esc(src)+'">'
+      :'<p class="note">L’image de la caméra s’affiche une fois Home Assistant connecté.</p>');
+  }else if(d.kind==='door'){
+    h=head(d,false)+'<div class="big"><strong id="bigState">'+(s.open?'Ouverte':'Fermée')+'</strong><span id="bigSub">'+since(s.since)+'</span></div>'+batt+
+      (ha.cfg?'':'<button class="btn" id="sim" data-act="sim">'+(s.open?'Simuler une fermeture':'Simuler une ouverture')+'</button>');
+  }else if(d.kind==='motion'){
+    h=head(d,false)+'<div class="big"><strong id="bigState">'+(s.active?'Mouvement':'Calme')+'</strong><span id="bigSub">dernier passage '+agoTxt(s.since)+'</span></div>'+batt+
+      (ha.cfg?'':'<button class="btn" id="sim" data-act="sim">Simuler un passage</button>');
+  }else if(d.kind==='thermo'){
+    return head(d,false)+'<div class="big"><strong id="bigState">'+fr(air[d.zone])+' °C</strong><span>température mesurée</span></div>'+batt+
+      '<div class="wires"><p class="wire"><span>Entité Home Assistant</span><code>'+esc(d.entity)+'</code></p></div>'+cfgLink(d);
+  }else if(d.kind==='cover'){
+    h=head(d,false)+range('pos','pos',0,100,s.pos,'Ouverture',s.pos+' %')+
+      '<div class="row2"><button class="btn" id="cop" data-act="cop">Ouvrir</button><button class="btn" id="cstop" data-act="cstop">Stop</button>'+
+      '<button class="btn" id="ccl" data-act="ccl">Fermer</button></div>';
+  }else{
+    h=head(d,true)+'<div class="thermo"><button class="rb" id="tminus" data-act="tminus" aria-label="Baisser la consigne">−</button>'+
+      '<div class="tval"><strong id="tTarget">'+fr(s.target)+'°</strong><span>Consigne</span></div>'+
+      '<button class="rb" id="tplus" data-act="tplus" aria-label="Monter la consigne">+</button></div>'+
+      '<p class="note">Température de la pièce : <b id="tNow">'+fr(air[d.zone])+' °C</b></p>';
+  }
+  return h+wires(esc(d.entity),d.last,d.kind==='door'||d.kind==='motion')+cfgLink(d);
+}
+function openTxt(){
+  const o=devices.filter(d=>d.kind==='door'&&d.s.open);
+  return o.length?o.map(d=>d.name.replace('Porte ','').replace('d’','')).join(', ')+(o.length>1?' ouvertes':' ouverte'):'toutes fermées';
+}
+function alarmHTML(){
+  const st=alarm.state,trig=st==='triggered';
+  return'<div class="shd"><span class="badge" id="badge" style="--c:'+(trig?'var(--accent)':st==='disarmed'?'var(--ink-soft)':'var(--ok)')+'">'+ICON.shield+'</span>'+
+    '<div class="ttl"><h2 id="sheetTitle">Alarme</h2><p id="sheetState">'+AL[st]+'</p></div>'+
+    '<button class="x" id="sheetClose" aria-label="Fermer" data-act="close">×</button></div>'+
+    (trig?'<div class="big"><strong>Déclenchée</strong><span id="alCause">'+(alarm.cause?alarm.cause+' · ':'')+agoTxt(alarm.at)+'</span></div>'+
+        '<button class="btn pri" id="al-stop" data-act="al" data-v="alarm_disarm">Arrêter l’alarme</button>'
+      :'<div class="field"><div class="lab"><span>Mode</span></div><div class="opts">'+
+        [['alarm_disarm','disarmed','Désarmer'],['alarm_arm_home','armed_home','Armer · maison'],['alarm_arm_away','armed_away','Armer · absent']]
+          .map(o=>'<button class="opt" id="al-'+o[1]+'" aria-pressed="'+(st===o[1])+'" data-act="al" data-v="'+o[0]+'">'+o[2]+'</button>').join('')+'</div></div>')+
+    '<p class="note">Portes : <b id="alOpen">'+openTxt()+'</b></p>'+
+    (ha.cfg?'<p class="note">L’alarme est gérée par Alarmo dans Home Assistant. Le désarmement demande le code.</p>'
+      :'<p class="note">Dans cette démo, une porte qui s’ouvre déclenche l’alarme armée. En mode absent, un mouvement la déclenche aussi.</p>')+
+    wires(ALARM_ENTITY,alarm.last,false);
+}
+/* ---------- météo : pastille et fiche ---------- */
+const WX_CLD='<path d="M7 15.5h10a3.8 3.8 0 0 0 .5-7.55A5.2 5.2 0 0 0 7.6 7.1 4.2 4.2 0 0 0 7 15.5z"/>';
+const WXI={
+  sun:'<circle cx="12" cy="12" r="3.8"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/>',
+  night:'<path d="M19.5 14.2A8 8 0 0 1 9.8 4.5a8 8 0 1 0 9.7 9.7z"/>',
+  partly:'<path d="M7.5 3v1.2M2.8 8H4M4.2 4.7l.8.8M10.8 4.7l-.8.8"/><path d="M4.6 11.4a3.6 3.6 0 1 1 6.2-3.5"/><path d="M9 20h8.5a3.4 3.4 0 0 0 .4-6.78A4.6 4.6 0 0 0 9.1 13a3.5 3.5 0 0 0-.1 7z"/>',
+  pnight:'<path d="M11.2 3.6A4.6 4.6 0 0 0 4.4 10.4"/><path d="M9 20h8.5a3.4 3.4 0 0 0 .4-6.78A4.6 4.6 0 0 0 9.1 13a3.5 3.5 0 0 0-.1 7z"/>',
+  cloud:'<path d="M7 18.5h10a4 4 0 0 0 .6-7.95A5.5 5.5 0 0 0 7.1 9.6 4.5 4.5 0 0 0 7 18.5z"/>',
+  rain:WX_CLD+'<path d="M8.5 18l-1 2.5M12.5 18l-1 2.5M16.5 18l-1 2.5"/>',
+  storm:WX_CLD+'<path d="M12.6 16.5l-2 3h3l-2 3"/>',
+  snow:WX_CLD+'<path d="M8 18.5h.01M12 18.5h.01M16 18.5h.01M10 21.5h.01M14 21.5h.01"/>',
+  fog:'<path d="M4 8h16M6 12h14M4 16h12M8 20h10"/>'
+};
+const WX_DIRS=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+const wxUi={ico:''};
+function wxIconKey(){
+  if(WX.storm)return'storm';
+  if(WX.snow)return'snow';
+  if(WX.rain>0)return'rain';
+  if(WX.cond==='fog')return'fog';
+  if(WX.cond==='cloud')return'cloud';
+  const el=wxSunPos().el,night=el!=null?el<0:WX.raw==='clear-night';
+  return WX.cond==='partly'?(night?'pnight':'partly'):(night?'night':'sun');
+}
+function wxCard(b){return WX_DIRS[Math.round((((b%360)+360)%360)/22.5)%16];}
+function uvLvl(u){return u<3?'faible':u<6?'modéré':u<8?'élevé':u<11?'très élevé':'extrême';}
+function aqiInfo(v){return v<=20?['bon','#3fb56b']:v<=40?['correct','#3fb56b']:v<=60?['moyen','#e3c440']:v<=80?['médiocre','#ef8d32']:v<=100?['mauvais','#e0503b']:['très mauvais','#e0503b'];}
+function pmColor(v){return v<=10?'#3fb56b':v<=20?'#e3c440':v<=25?'#ef8d32':'#e0503b';}
+function wxTempTxt(){return WX.temp!=null?fr(WX.temp)+' °C':'—';}
+function uvColor(u){return u<3?'#3fb56b':u<6?'#e3c440':u<8?'#ef8d32':u<11?'#e0503b':'#9b59d0';}
+const wxSvg=(p,n,w)=>'<svg viewBox="0 0 24 24" width="'+n+'" height="'+n+'" fill="none" stroke="currentColor" stroke-width="'+w+'" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+p+'</svg>';
+/* pictos des tuiles de la fiche météo */
+const WXT={
+  wind:'<path d="M3 8h10.5a2.5 2.5 0 1 0-2.5-2.5M3 12h15.5a2.5 2.5 0 1 1-2.5 2.5M3 16h8"/>',
+  uv:WXI.sun,
+  air:'<path d="M5 19c0-8 5-13 14-14-1 9-6 14-14 14zM5 19l7-7"/>',
+  hum:'<path d="M12 3.5s-6 6.6-6 10.7a6 6 0 0 0 12 0C18 10.1 12 3.5 12 3.5z"/>',
+  press:'<circle cx="12" cy="13" r="8"/><path d="M12 13l3.5-3.5M8 13h.01M16 13h.01M12 9h.01"/>',
+  cloud:WXI.cloud,
+  rain:'<path d="M3 12a9 9 0 0 1 18 0zM12 12v6.5a2 2 0 0 1-4 0"/>'
+};
+/* [id, libellé, valeur, couleur éventuelle, picto, détail] */
+function wxCells(){
+  const na='—',soft='var(--ink-soft)',u=WX.uv,q=WX.aqi!=null?aqiInfo(WX.aqi):null;
+  const c=[
+    ['wxWind','Vent',WX.wind!=null?Math.round(WX.wind)+' km/h'+(WX.windDir!=null?' · '+wxCard(WX.windDir):''):na,null,'wind',WX.gust!=null?'rafales '+Math.round(WX.gust)+' km/h':''],
+    ['wxUv','Indice UV',u!=null?String(Math.round(u*10)/10).replace('.',','):na,u!=null?uvColor(u):soft,'uv',u!=null?uvLvl(u):''],
+    ['wxAqi','Qualité de l’air',q?Math.round(WX.aqi)+' · '+q[0]:na,q?q[1]:soft,'air',WX.pm25!=null?'PM2,5 '+fr(WX.pm25)+' µg/m³':''],
+    ['wxHum','Humidité',WX.hum!=null?Math.round(WX.hum)+' %':na,null,'hum',WX.dew!=null?'point de rosée '+fr(WX.dew)+' °C':''],
+    ['wxPress','Pression',WX.press!=null?Math.round(WX.press)+' hPa':na,null,'press',''],
+    ['wxCloud','Nuages',WX.cond?Math.round(WX.cloud)+' %':na,null,'cloud','']
+  ];
+  if(WX.rainChance!=null||WX.precip!=null)c.push(['wxRain','Pluie',WX.rainChance!=null?Math.round(WX.rainChance)+' % de risque':fr(WX.precip)+' mm',null,'rain',WX.rainChance!=null&&WX.precip!=null?fr(WX.precip)+' mm':'']);
+  return c;
+}
+function wxHTML(){
+  wxUi.ico=wxIconKey();
+  return'<div class="shd"><div class="ttl"><h2 id="sheetTitle">Météo</h2><p>'+WX.label+'</p></div>'+
+    '<button class="x" id="sheetClose" aria-label="Fermer" data-act="close">×</button></div>'+
+    '<div class="wxset"><span>Effet météo 3D<small>'+(WX.off?'désactivé':'activé')+'</small></span>'+
+    '<button class="sw" id="wxTgl" role="switch" aria-checked="'+!WX.off+'" aria-label="Effet météo 3D" data-act="wxTgl"></button></div>'+
+    '<div class="wxhd"><span class="wxi">'+wxSvg(WXI[wxUi.ico],48,1.4)+'</span><div><strong id="wxTemp">'+wxTempTxt()+'</strong>'+
+    '<b id="wxCond">'+WX.label+'</b><small id="wxApp">'+(WX.apparent!=null?'ressenti '+fr(WX.apparent)+' °C':'')+'</small></div></div>'+
+    '<div class="wxg">'+wxCells().map(c=>'<div class="wxc"><i>'+wxSvg(WXT[c[4]],20,1.6)+'</i><div><span>'+c[1]+'</span><b>'+(c[3]?'<i class="aqd" id="'+c[0]+'C" style="--c:'+c[3]+'"></i>':'')+'<em id="'+c[0]+'">'+c[2]+'</em></b>'+
+      '<small id="'+c[0]+'S">'+c[5]+'</small></div></div>').join('')+'</div>'+
+    (WX.demo?'<p class="note">Mode démo : condition forcée par l’adresse (?wx='+WX.demo+'), les mesures restent celles de Home Assistant.</p>':'')+
+    (!ha.cfg?'<p class="note">Connecte Home Assistant pour la météo en direct.</p>':'')+
+    '<p class="note wxsrc">Sources : met.no ('+esc(WX.src||WX_MAIN)+') et Météo-France via Home Assistant, position du soleil : sun.sun. Qualité de l’air : Open-Meteo (CAMS, Copernicus).</p>';
+}
+function wxSync(){
+  const cells=wxCells();
+  if(wxIconKey()!==wxUi.ico||cells.some(c=>!document.getElementById(c[0]))){renderSheet();return;}
+  setText('wxCond',WX.label);setText('wxTemp',wxTempTxt());setText('wxApp',WX.apparent!=null?'ressenti '+fr(WX.apparent)+' °C':'');
+  cells.forEach(c=>{setText(c[0],c[2]);setText(c[0]+'S',c[5]);const d=document.getElementById(c[0]+'C');if(d&&c[3])d.style.setProperty('--c',c[3]);});
+}
+/* interrupteur de la fiche météo : effet 3D extérieur activé / désactivé */
+function wxToggle(){
+  WX.off=!WX.off;wxV.flash=0;
+  try{localStorage.setItem(WX_KEY,WX.off?'off':'on');}catch(_){}
+  if(!WX.off)wxStep(0,0,true);   /* réactivé : ciel, nuages et pluie reviennent d'un coup, sans fondu */
+  wxChip();
+  $('#live').textContent='Effet météo '+(WX.off?'désactivé':'activé');
+}
+function wxChip(){
+  const e=$('#chipWx');
+  e.hidden=!WX.cond&&WX.temp==null;
+  if(e.hidden)return;
+  const k=wxIconKey(),ic=$('#chipWxIco');
+  if(ic.dataset.k!==k){ic.dataset.k=k;ic.innerHTML='<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+WXI[k]+'</svg>';}
+  chip('chipWx',WX.off?'wxoff':'',wxTempTxt());
+  e.setAttribute('aria-pressed',String(!WX.off));
+  e.setAttribute('aria-label','Météo : '+WX.label+', '+wxTempTxt()+'. Effet 3D '+(WX.off?'désactivé':'activé')+' : appui pour ouvrir la météo');
+}
+function rowHTML(d){
+  return'<li class="li"><button class="lib" id="li-'+d.id+'" data-act="open" data-id="'+d.id+'"><span class="badge" id="lb-'+d.id+'" style="--c:'+badgeColor(d)+'">'+ICON[d.kind]+'</span>'+
+    '<span class="txt"><b>'+esc(d.name)+'</b><small id="ls-'+d.id+'">'+stateText(d)+'</small></span>'+(d.pending?'<span class="tag">À relier</span>':'')+'</button>'+
+    '<button class="gear" id="lg-'+d.id+'" aria-label="Configurer : '+esc(d.name)+'" data-act="cfg" data-id="'+d.id+'">'+ICON.gear+'</button>'+
+    (canToggle(d)?'<button class="sw" id="lsw-'+d.id+'" role="switch" aria-checked="'+isOn(d)+'" aria-label="Allumer ou éteindre : '+esc(d.name)+'" data-act="qtoggle" data-id="'+d.id+'"></button>':'')+'</li>';
+}
+function listHTML(){
+  const np=devices.filter(d=>d.pending).length;
+  let h='<div class="shd"><div class="ttl"><h2 id="sheetTitle">Équipements</h2><p>'+devices.length+' sur le plan'+(np?', dont '+np+' à relier':'')+'</p></div>'+
+    '<button class="btn add" id="btnAdd" data-act="addOpen">＋ Ajouter</button>'+
+    '<button class="x" id="sheetClose" aria-label="Fermer" data-act="close">×</button></div>'+
+    '<p class="note">La roue dentée ouvre la configuration : entité Home Assistant, type et nom.</p><ul class="list">';
+  ROOM_ORDER.forEach(r=>{
+    const ds=devices.filter(d=>d.room===r);
+    if(ds.length)h+='<li class="grp">'+r+'</li>'+ds.map(rowHTML).join('');
+  });
+  return h+'</ul>';
+}
+
+/* ---------- menu de configuration : entité, type et nom de chaque équipement ---------- */
+const cfgUi={q:'',shown:'',n:0};
+function esc(v){return String(v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function norm(v){return String(v).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');}
+function cfgDev(){return ui.sel&&ui.sel.indexOf('cfg:')===0?byId[ui.sel.slice(4)]:null;}
+function capLabel(c){const x=CAPS.filter(k=>k[0]===c)[0];return x?x[1]:c;}
+function entsHTML(d){
+  return d.ents.length?d.ents.map((e,i)=>'<span class="ent"><span>'+esc(e)+'</span><button id="ent-'+i+'" data-act="cdel" data-i="'+i+'" aria-label="Retirer '+esc(e)+'">×</button></span>').join('')
+    :'<span class="note">Aucune entité reliée.</span>';
+}
+/* entités proposées : celles du bon domaine connues de Home Assistant, les libres d'abord */
+function candidates(d,q0){
+  const q=norm((q0==null?cfgUi.q:q0).trim()),doms=DOMAINS[d.kind]||[],out=[];
+  Object.keys(ha.states).forEach(id=>{
+    if(doms.indexOf(domOf(id))<0||d.ents.indexOf(id)>=0)return;
+    /* on masque les réglages techniques des appareils (DND, crossfade, backlight…) */
+    if(!q&&/_(do_not_disturb|child_lock|crossfade|loudness|night_sound|speech_enhancement|surround_enabled|surround_music_full_volume|tv_autoplay|ungroup_on_autoplay|delayed_power_on_state.*|identify|permit_join|backlight)$/.test(id))return;
+    const st=ha.states[id],a=st.attributes||{},name=a.friendly_name||'',dc=a.device_class||'';
+    if(d.kind==='thermo'&&dc!=='temperature'&&!/°[CF]/.test(a.unit_of_measurement||''))return;
+    if(!q&&d.kind==='motion'&&dc&&!/motion|occupancy|presence|moving/.test(dc))return;
+    if(!q&&d.kind==='door'&&dc&&!/door|window|opening|lock/.test(dc))return;
+    if(q&&norm(id+' '+name).indexOf(q)<0)return;
+    out.push({id,name,state:st.state,used:!!byEntity[id]});
+  });
+  out.sort((x,y)=>(x.used-y.used)||(x.name||x.id).localeCompare(y.name||y.id,'fr',{sensitivity:'base'}));
+  return out;
+}
+const CAND_MAX=200;
+/* Home Assistant n'a encore rien envoyé : message + relance de la connexion */
+function candsEmpty(){return'<li class="note">Connecte Home Assistant pour voir ses entités, ou saisis un identifiant complet, par exemple light.salon.</li><li><button class="btn" id="haRetry" data-act="hretry">Réessayer</button></li>';}
+function candsHTML(d){
+  const q=cfgUi.q.trim().toLowerCase(),list=candidates(d);
+  cfgUi.n=list.length;
+  let h=list.slice(0,CAND_MAX).map((c,i)=>'<li><button class="cand'+(c.used?' used':'')+'" id="cand-'+i+'" data-act="cadd" data-e="'+esc(c.id)+'"><b>'+esc(c.name||c.id)+(c.used?' · déjà relié':'')+'</b><small>'+esc(c.id)+' · '+esc(c.state)+'</small></button></li>').join('');
+  if(list.length>CAND_MAX)h+='<li class="note">'+(list.length-CAND_MAX)+' autres entités : précise la recherche.</li>';
+  /* saisie manuelle : utile hors connexion, ou pour une entité absente de la liste */
+  if(/^[a-z_]+\.[a-z0-9_]+$/.test(q)&&d.ents.indexOf(q)<0&&!ha.states[q])
+    h+='<li><button class="cand" id="cand-manual" data-act="cadd" data-e="'+esc(q)+'"><b>Relier « '+esc(q)+' »</b><small>saisie manuelle</small></button></li>';
+  if(!Object.keys(ha.states).length)h+=candsEmpty();
+  else if(!h)h='<li class="note">Aucune entité ne correspond.</li>';
+  return h;
+}
+function cfgHTML(d){
+  const multi=!!MULTI[d.kind],cands={h:candsHTML(d),n:cfgUi.n};
+  let h='<div class="shd"><span class="badge" id="badge" style="--c:'+badgeColor(d)+'">'+ICON[d.kind]+'</span>'+
+    '<div class="ttl"><h2 id="sheetTitle">Configurer</h2><p>'+esc(d.def.name)+' · '+d.room+'</p></div>'+
+    (canToggle(d)?'<button class="sw" id="sw-main" role="switch" aria-checked="'+isOn(d)+'" aria-label="Tester : allumer ou éteindre" data-act="ctest"></button>':'')+
+    '<button class="x" id="sheetClose" aria-label="Fermer" data-act="close">×</button></div>'+
+    '<div class="field"><label class="lab" for="cfgName"><span>Nom</span></label><input type="text" id="cfgName" value="'+esc(d.name)+'" maxlength="40" autocomplete="off" spellcheck="false"></div>'+
+    '<div class="field"><label class="lab" for="cfgQ"><span>'+(multi?'Entités Home Assistant':'Entité Home Assistant')+' (<span id="cfgN">'+cands.n+'</span>)</span></label><div class="ents" id="cfgEnts">'+entsHTML(d)+'</div>'+
+    (multi?'<p class="note">Plusieurs entités peuvent partager ce même emplacement (deux bandeaux LED, une prise et sa lampe…). Ajoute-les ci-dessous : elles seront affichées et pilotées ensemble.</p>':'')+
+    '<input type="text" id="cfgQ" placeholder="'+(multi&&d.ents.length?'Ajouter une entité : chercher ou saisir':'Chercher ou saisir une entité')+'" value="'+esc(cfgUi.q)+'" autocomplete="off" autocapitalize="off" spellcheck="false">'+
+    '<ul class="cands" id="cfgCands">'+cands.h+'</ul></div>';
+  if(d.kind==='light')h+='<div class="field"><div class="lab"><span>Type de lumière</span><output>'+(d.capsCfg==='auto'&&!d.pending?'détecté : '+capLabel(capsOf(d)):'')+'</output></div><div class="opts">'+
+    CAPS.map(c=>'<button class="opt" id="cap-'+c[0]+'" aria-pressed="'+(d.capsCfg===c[0])+'" data-act="ccaps" data-v="'+c[0]+'">'+c[1]+'</button>').join('')+'</div></div>';
+  if(d.kind==='cover')h+='<div class="field"><label class="chk"><input type="checkbox" id="cfgInv" data-act="cinv"'+(d.inv?' checked':'')+'> Inverser le sens du volet</label></div>';
+  return h+'<div class="row2"><button class="btn" id="cfgBack" data-act="cback">Retour à la liste</button>'+
+    (devCfg[d.id]?'<button class="btn" id="cfgReset" data-act="creset">Réglages d’origine</button>':'')+
+    '<button class="btn" id="cfgDel" data-act="delAsk">Supprimer</button></div>';
+}
+/* ---------- ajout d'un équipement : fiche, puis appui sur le plan pour le placer ---------- */
+const addUi={name:'',room:ROOM_ORDER[0],kind:'light',ent:'',q:'',placing:false};
+function addCandsHTML(){
+  const q=addUi.q.trim().toLowerCase(),list=candidates({kind:addUi.kind,ents:[]},addUi.q);
+  let h=list.slice(0,CAND_MAX).map((c,i)=>'<li><button class="cand'+(c.used?' used':'')+'" id="acand-'+i+'" aria-pressed="'+(addUi.ent===c.id)+'" data-act="aent" data-e="'+esc(c.id)+'"><b>'+esc(c.name||c.id)+(c.used?' · déjà relié':'')+'</b><small>'+esc(c.id)+' · '+esc(c.state)+'</small></button></li>').join('');
+  if(list.length>CAND_MAX)h+='<li class="note">'+(list.length-CAND_MAX)+' autres entités : précise la recherche.</li>';
+  if(/^[a-z_]+\.[a-z0-9_]+$/.test(q)&&addUi.ent!==q&&!ha.states[q])
+    h+='<li><button class="cand" id="acand-manual" data-act="aent" data-e="'+esc(q)+'"><b>Relier « '+esc(q)+' »</b><small>saisie manuelle</small></button></li>';
+  if(!h)h='<li class="note">'+(ha.ready?'Aucune entité ne correspond.':'Connecte Home Assistant pour voir ses entités, ou saisis un identifiant complet, par exemple light.salon.')+'</li>';
+  return h;
+}
+function addHTML(){
+  return'<div class="shd"><span class="badge" id="badge" style="--c:var(--ink)">'+ICON[addUi.kind]+'</span>'+
+    '<div class="ttl"><h2 id="sheetTitle">Ajouter un équipement</h2><p>à placer ensuite sur le plan</p></div>'+
+    '<button class="x" id="sheetClose" aria-label="Fermer" data-act="close">×</button></div>'+
+    '<div class="field"><label class="lab" for="addName"><span>Nom</span></label><input type="text" id="addName" value="'+esc(addUi.name)+'" maxlength="40" autocomplete="off" spellcheck="false"></div>'+
+    '<div class="field"><label class="lab" for="addRoom"><span>Pièce</span></label><select id="addRoom">'+
+      ROOM_ORDER.map(r=>'<option'+(r===addUi.room?' selected':'')+'>'+esc(r)+'</option>').join('')+'</select></div>'+
+    '<div class="field"><label class="lab" for="addKind"><span>Type</span></label><select id="addKind">'+
+      ADD_KINDS.map(k=>'<option value="'+k[0]+'"'+(k[0]===addUi.kind?' selected':'')+'>'+k[1]+'</option>').join('')+'</select></div>'+
+    '<div class="field"><label class="lab" for="addQ"><span>Entité Home Assistant</span></label><div class="ents" id="addEnts">'+
+      (addUi.ent?'<span class="ent"><span>'+esc(addUi.ent)+'</span><button id="aent-del" data-act="aentdel" aria-label="Retirer '+esc(addUi.ent)+'">×</button></span>':'<span class="note">Aucune entité : tu pourras la relier plus tard.</span>')+'</div>'+
+    '<input type="text" id="addQ" placeholder="Chercher ou saisir une entité" value="'+esc(addUi.q)+'" autocomplete="off" autocapitalize="off" spellcheck="false">'+
+    '<ul class="cands" id="addCands">'+addCandsHTML()+'</ul></div>'+
+    '<button class="btn pri" id="addPlace" data-act="addPlace">Choisir l’emplacement</button>';
+}
+function placeStart(){
+  addUi.placing=true;closeSheet();
+  hint.textContent='Touche le plan pour placer l’équipement';hint.classList.remove('gone');
+  $('#live').textContent=hint.textContent;
+}
+function placeEnd(){addUi.placing=false;hint.textContent=HINT_TXT;hint.classList.add('gone');}
+function placeAt(sx,sy){
+  const p=screenToWorld(sx,sy,1.4);
+  if(!p||p[0]<-1||p[0]>7||p[1]<-2||p[1]>13){hint.textContent='Hors du plan : touche l’intérieur du logement';$('#live').textContent=hint.textContent;return;}
+  const k=ADD_KINDS.filter(k=>k[0]===addUi.kind)[0];
+  CUSTOM.add.push({id:'user_'+Date.now(),name:addUi.name.trim()||k[1],kind:addUi.kind,room:addUi.room,entity:addUi.ent,x:+p[0].toFixed(2),z:+p[1].toFixed(2)});
+  saveCustom();location.reload();
+}
+function cfgChanged(d){
+  haResync(d);syncPending();refreshChips();renderSheet();
+  $('#live').textContent=d.name+' : configuration enregistrée';
+}
+/* image de la caméra : cliché servi par Home Assistant, rafraîchi toutes les 3 secondes */
+function haBase(){let u=ha.cfg.url.trim().replace(/\/+$/,'').replace(/\/api\/websocket$/,'');if(!/^[a-z]+:\/\//i.test(u))u='http://'+u;return u;}
+function camSrc(d){
+  if(!ha.cfg||!ha.ready||!d.pic)return'';
+  return(/^https?:/i.test(d.pic)?d.pic:haBase()+d.pic)+(d.pic.indexOf('?')<0?'?':'&')+'_='+Math.floor(Date.now()/3000);
+}
+function camTick(d){
+  const img=document.getElementById('camImg'),src=camSrc(d);
+  if(!img||!src||img.dataset.want===src)return;
+  img.dataset.want=src;
+  const pre=new Image();pre.onload=()=>{if(img.dataset.want===src)img.src=src;};pre.src=src;
+}
+/* ---------- lumières allumées ---------- */
+const lightsUi={sig:''};
+function litLamps(){return lamps().filter(d=>d.s.on);}
+function lightsSig(){return litLamps().map(d=>d.id).join();}
+function lightsHTML(){
+  const on=litLamps();
+  let h='<div class="shd"><div class="ttl"><h2 id="sheetTitle">Lumières allumées</h2><p>'+(on.length?on.length+(on.length>1?' allumées':' allumée'):'toutes éteintes')+'</p></div>'+
+    '<button class="x" id="sheetClose" aria-label="Fermer" data-act="close">×</button></div>';
+  h+=on.length?'<ul class="list">'+on.map(d=>'<li class="li"><button class="lib" id="li-'+d.id+'" data-act="open" data-id="'+d.id+'"><span class="badge" id="lb-'+d.id+'" style="--c:'+badgeColor(d)+'">'+ICON[d.kind]+'</span>'+
+      '<span class="txt"><b>'+esc(d.name)+'</b><small>'+esc(d.room)+'</small></span></button>'+
+      '<button class="gear" id="lg-'+d.id+'" aria-label="Configurer : '+esc(d.name)+'" data-act="cfg" data-id="'+d.id+'">'+ICON.gear+'</button>'+
+      '<button class="sw" id="lsw-'+d.id+'" role="switch" aria-checked="true" aria-label="Éteindre : '+esc(d.name)+'" data-act="qtoggle" data-id="'+d.id+'"></button></li>').join('')+'</ul>'+
+      '<button class="btn danger" id="lAllOff" data-act="lalloff">Tout éteindre</button>'
+    :'<p class="note">Aucune lumière allumée</p>';
+  return h;
+}
+function lightsAct(name,el){
+  if(name==='loff'){const d=byId[el.dataset.id];if(d&&d.s.on)toggleDev(d);$('#live').textContent=d?d.name+' : éteinte':'';refreshUI(false);}
+  else if(name==='lalloff'){litLamps().forEach(d=>toggleDev(d));$('#live').textContent='Toutes les lumières éteintes';refreshUI(false);}
+}
+/* ---------- pastilles de scène : nom et nombre libres, scène Home Assistant liée (appui long pour régler) ---------- */
+const PILL_KEY='neoplex.pills',PILL_DEF=[{id:'cine',label:'Ciné',builtin:'cine'},{id:'detente',label:'Détente',builtin:'detente'},{id:'off',label:'Tout éteindre',builtin:'off'}];
+const scnUi={q:'',name:'',scene:''};
+let pills=null;
+try{const a=JSON.parse(localStorage.getItem(PILL_KEY)||'null');
+  if(Array.isArray(a))pills=a.filter(p=>p&&typeof p==='object'&&p.id&&typeof p.label==='string').map(p=>{
+    const o={id:String(p.id),label:p.label.slice(0,20)};if(typeof p.scene==='string'&&p.scene)o.scene=p.scene;if(SCENES[p.builtin])o.builtin=p.builtin;return o;});
+}catch(_){}
+if(!pills||!pills.length){
+  pills=PILL_DEF.map(p=>Object.assign({},p));
+  /* reprise des scènes choisies avec l'ancienne version (neoplex.scenes) */
+  try{const m=JSON.parse(localStorage.getItem('neoplex.scenes')||'{}')||{};pills.forEach(p=>{if(typeof m[p.id]==='string')p.scene=m[p.id];});}catch(_){}
+}
+function pillsSave(){try{localStorage.setItem(PILL_KEY,JSON.stringify(pills));}catch(_){}}
+function scnName(e){const st=ha.states[e];return(st&&st.attributes&&st.attributes.friendly_name)||e;}
+function scnKey(){return ui.sel&&ui.sel.indexOf('scn:')===0?ui.sel.slice(4):null;}
+/* pastille de la fiche ouverte (null pour « Nouvelle pastille ») */
+function scnPill(){const k=scnKey();return k&&k!=='new'?pills[+k]||null:null;}
+function scnBound(p){return p&&p.scene&&ha.states[p.scene]?p.scene:null;}
+function pillsRender(){
+  $('nav.scenes').innerHTML=pills.map((p,i)=>'<button class="pill" id="pill-'+i+'" data-pill="'+i+'" data-scene="'+esc(p.id)+'" aria-pressed="'+(ui.scene===p.id)+'">'+esc(p.label)+'</button>').join('')+
+    '<button class="pill add" id="pill-add" data-pill="new" aria-label="Nouvelle pastille" title="Nouvelle pastille">＋</button>';
+  scnRefresh();
+}
+/* une pastille liée à une scène présente porte une marque ; une scène disparue la grise */
+function scnRefresh(){
+  pills.forEach((p,i)=>{
+    const b=document.getElementById('pill-'+i);if(!b)return;
+    const e=scnBound(p),gone=!!p.scene&&!e&&ha.ready;
+    b.classList.toggle('bound',!!e);b.classList.toggle('missing',gone&&!p.builtin);
+    const t=p.label+(e?' : '+scnName(e):gone?' : scène absente':''),lbl=t+' · appui long : régler la pastille';
+    if(b.getAttribute('aria-label')!==lbl){b.setAttribute('aria-label',lbl);b.title=t;}
+  });
+}
+function scnOpen(k){
+  Object.assign(scnUi,{q:'',name:'',scene:''});openSheet('scn:'+k);
+  const q=document.getElementById(k==='new'?'pillName':'scnQ');if(q&&!COARSE)q.focus();
+}
+/* appui court : scène HA liée si présente, sinon scène intégrée, sinon rien */
+function pillRun(i){
+  const p=pills[i];if(!p)return;
+  const e=scnBound(p);
+  if(e){
+    haCall('scene','turn_on',{entity_id:e},r=>{if(r&&!r.success)haFlash('Scène refusée : '+haErrTxt(r));});
+    setScene(p.id);$('#live').textContent=p.label+' : '+scnName(e);
+  }else if(p.builtin){
+    SCENES[p.builtin]();setScene(p.id);$('#live').textContent='Scène '+p.label+' activée';
+  }else{haFlash('Aucune scène liée · appui long');return;}
+  refreshUI(false);
+}
+function scnCands(){
+  const q=norm(scnUi.q.trim()),out=[];
+  Object.keys(ha.states).forEach(id=>{
+    if(domOf(id)!=='scene')return;
+    const name=scnName(id);
+    if(q&&norm(id+' '+name).indexOf(q)<0)return;
+    out.push({id,name});
+  });
+  return out.sort((x,y)=>x.name.localeCompare(y.name,'fr'));
+}
+function scnCandsHTML(){
+  const p=scnPill(),list=scnCands(),cur=p?p.scene:scnUi.scene;
+  if(!list.length)return'<li class="note">'+(ha.ready?'Aucune scène ne correspond.':'Connecte Home Assistant pour voir ses scènes.')+'</li>';
+  return list.map((c,i)=>'<li><button class="cand'+(c.id===cur?' used':'')+'" id="scand-'+i+'" data-act="spick" data-e="'+esc(c.id)+'"'+(c.id===cur?' aria-current="true" aria-pressed="true"':'')+'><b>'+esc(c.name)+'</b><small>'+esc(c.id)+'</small></button></li>').join('');
+}
+function scnHTML(){
+  const p=scnPill(),e=p?p.scene:scnUi.scene;
+  const st=!e?'aucune scène liée':ha.ready&&!ha.states[e]?'scène absente ('+esc(e)+')':esc(scnName(e));
+  return'<div class="shd"><div class="ttl"><h2 id="sheetTitle">'+(p?'Pastille « '+esc(p.label)+' »':'Nouvelle pastille')+'</h2><p id="scnSt">'+st+'</p></div>'+
+    '<button class="x" id="sheetClose" aria-label="Fermer" data-act="close">×</button></div>'+
+    '<div class="field"><label class="lab" for="pillName"><span>Nom</span></label><input type="text" id="pillName" value="'+esc(p?p.label:scnUi.name)+'" maxlength="20" autocomplete="off" spellcheck="false"></div>'+
+    '<div class="field"><label class="lab" for="scnQ"><span>Scène'+(p?'':' (obligatoire)')+'</span></label>'+
+    '<input type="text" id="scnQ" placeholder="Chercher une scène" value="'+esc(scnUi.q)+'" autocomplete="off" autocapitalize="off" spellcheck="false">'+
+    '<ul class="cands" id="scnCands">'+scnCandsHTML()+'</ul></div>'+
+    (p?(p.scene?'<button class="btn danger" id="scnReset" data-act="sreset">Réinitialiser</button>':'')+
+      (pills.length>1?'<button class="btn danger" id="pillDel" data-act="pdel">Supprimer cette pastille</button>':'')
+      :'<button class="btn pri" id="pillAdd" data-act="padd">Ajouter</button>');
+}
+function scnAct(name,el){
+  const k=scnKey();if(!k)return;
+  const p=scnPill();
+  if(k==='new'){
+    if(name==='spick'){scnUi.scene=el.dataset.e;renderSheet();}
+    else if(name==='padd'){
+      if(!scnUi.scene){haFlash('Choisis une scène pour cette pastille');return;}
+      const label=(scnUi.name.trim()||scnName(scnUi.scene)).slice(0,20);
+      pills.push({id:'p'+Date.now().toString(36),label,scene:scnUi.scene});pillsSave();pillsRender();closeSheet();
+      $('#live').textContent='Pastille « '+label+' » ajoutée';
+    }
+    return;
+  }
+  if(!p)return;
+  if(name==='spick'){p.scene=el.dataset.e;pillsSave();scnRefresh();closeSheet();$('#live').textContent=p.label+' : '+scnName(p.scene);}
+  else if(name==='sreset'){
+    if(p.scene&&confirm('Retirer la scène liée à « '+p.label+' » ?')){delete p.scene;pillsSave();scnRefresh();renderSheet();}
+  }else if(name==='pdel'){
+    if(pills.length>1&&confirm('Supprimer la pastille « '+p.label+' » ?')){
+      pills.splice(+k,1);if(ui.scene===p.id)ui.scene=null;pillsSave();pillsRender();closeSheet();
+      $('#live').textContent='Pastille « '+p.label+' » supprimée';
+    }
+  }
+}
+/* saisie du nom : enregistrée à la frappe, aperçu immédiat dans le dock */
+function pillNameInput(v){
+  const p=scnPill();
+  if(!p){scnUi.name=v;return;}
+  const t=v.trim().slice(0,20);if(!t)return;
+  p.label=t;pillsSave();
+  const b=document.getElementById('pill-'+scnKey());if(b)b.textContent=t;
+  setText('sheetTitle','Pastille « '+t+' »');scnRefresh();
+}
+(()=>{
+  const nav=$('nav.scenes');let lp=null,lpDone=false;
+  const cancel=()=>{clearTimeout(lp);lp=null;};
+  nav.addEventListener('pointerdown',e=>{
+    const b=e.target.closest('[data-pill]');lpDone=false;cancel();
+    if(!b||b.dataset.pill==='new')return;
+    lp=setTimeout(()=>{lp=null;lpDone=true;scnOpen(b.dataset.pill);},500);
+  });
+  ['pointerup','pointerleave','pointercancel'].forEach(t=>nav.addEventListener(t,cancel));
+  nav.addEventListener('contextmenu',e=>e.preventDefault());
+  nav.addEventListener('click',e=>{
+    const b=e.target.closest('[data-pill]');if(!b)return;
+    if(lpDone){lpDone=false;return;}
+    if(b.dataset.pill==='new')scnOpen('new');else pillRun(+b.dataset.pill);
+  });
+})();
+pillsRender();
+/* ---------- consommation réelle : moyenne sur 7 jours, depuis l'onglet Énergie de Home Assistant ---------- */
+const WATT_KEY='neoplex.watt',WATT_EVERY=3600000,DAYS=['dim','lun','mar','mer','jeu','ven','sam'];
+const watt={data:null,busy:false,err:''};
+try{const c=JSON.parse(localStorage.getItem(WATT_KEY)||'null');if(c&&c.t&&c.days)watt.data=c;}catch(_){}
+function wattDone(){refreshChips();measure();if(ui.sel==='power')renderSheet();}
+function wattFetch(force){
+  if(!ha.ready||watt.busy)return;
+  if(!force&&watt.data&&Date.now()-watt.data.t<WATT_EVERY)return;
+  watt.busy=true;watt.err='';
+  const fail=m=>{watt.busy=false;watt.err=m;watt.data=null;try{localStorage.removeItem(WATT_KEY);}catch(_){}wattDone();};
+  haSend({type:'energy/get_prefs'},r=>{
+    const src=r.success&&r.result&&(r.result.energy_sources||[]).filter(x=>x.stat_energy_from)[0];
+    if(!src){fail(r.success?'aucune source d’énergie':haErrTxt(r));return;}
+    const id=src.stat_energy_from,now=Date.now();
+    haSend({type:'recorder/statistics_during_period',start_time:new Date(now-8*86400000).toISOString(),end_time:new Date(now).toISOString(),
+      statistic_ids:[id],period:'day',types:['sum']},r2=>{
+      const ts=v=>typeof v==='number'?v:Date.parse(v);
+      const rows=(r2.success&&r2.result&&r2.result[id]||[]).filter(x=>x.sum!=null).sort((a,b)=>ts(a.start)-ts(b.start)).slice(-8);
+      if(rows.length<2){fail(r2.success?'pas assez de données':haErrTxt(r2));return;}
+      const a=rows[0],b=rows[rows.length-1],wh=b.sum-a.sum,h=(ts(b.start)-ts(a.start))/3600000;
+      if(!(h>0)||!(wh>=0)){fail('données incohérentes');return;}
+      const days=rows.slice(1).map((x,i)=>({t:ts(rows[i].start),kwh:Math.max(0,(x.sum-rows[i].sum)/1000)}));
+      watt.data={t:Date.now(),id,w:wh/h,kwhDay:wh/1000/(h/24),total:days.reduce((s,x)=>s+x.kwh,0),n:Math.round(h/24),days};
+      watt.busy=false;
+      try{localStorage.setItem(WATT_KEY,JSON.stringify(watt.data));}catch(_){}
+      wattDone();
+    });
+  });
+}
+setInterval(()=>wattFetch(false),10*60000);
+function powerHTML(){
+  const w=watt.data;
+  let h='<div class="shd"><div class="ttl"><h2 id="sheetTitle">Consommation</h2><p>moyenne sur 7 jours</p></div>'+
+    '<button class="x" id="sheetClose" aria-label="Fermer" data-act="close">×</button></div>';
+  if(!w||!ha.cfg){
+    return h+'<p class="note">Statistiques indisponibles'+(!ha.ready?' : Home Assistant n’est pas connecté.':watt.busy?' : chargement…':watt.err?' ('+esc(watt.err)+')':'')+'</p>'+
+      '<button class="btn" id="wRetry" data-act="wretry">Réessayer</button>';
+  }
+  const max=Math.max.apply(null,w.days.map(x=>x.kwh).concat([0.001]));
+  return h+'<div class="big"><strong>'+Math.round(w.w)+' W</strong><span>'+fr(w.kwhDay)+' kWh/jour · '+fr(w.total)+' kWh sur '+((w.n||w.days.length)===7?'la semaine':(w.n||w.days.length)+' jours')+'</span></div>'+
+    '<div class="bars" role="img" aria-label="Consommation par jour">'+w.days.map(x=>'<div class="bar" title="'+fr(x.kwh)+' kWh"><i style="height:calc((100% - 18px) * '+(x.kwh/max).toFixed(3)+')"></i><span>'+DAYS[new Date(x.t).getDay()]+'</span></div>').join('')+'</div>'+
+    '<p class="note">Source : onglet Énergie de Home Assistant (Linky)</p>';
+}
+function renderSheet(){
+  if(!ui.sel)return;
+  const keep=document.activeElement&&sheet.contains(document.activeElement)?document.activeElement.id:'';
+  const cd=cfgDev(),nm=document.getElementById('cfgName'),typed=nm&&cfgUi.shown===ui.sel?nm.value:null;
+  const dv=byId[ui.sel];
+  if(ui.sel==='lights')lightsUi.sig=lightsSig();
+  sheetBody.innerHTML=ui.sel==='list'?listHTML():ui.sel==='lights'?lightsHTML():scnKey()?scnHTML():ui.sel==='power'?powerHTML():ui.sel==='alarm'?alarmHTML():ui.sel==='wx'?wxHTML():ui.sel==='add'?addHTML():cd?cfgHTML(cd):
+    sheetHTML(dv)+(dv.pending?'':'<button class="btn" id="delDev" data-act="delAsk">Supprimer</button>');
+  cfgUi.shown=ui.sel;
+  /* un rafraîchissement ne doit pas effacer un nom en cours de saisie */
+  if(typed!=null){const n2=document.getElementById('cfgName');if(n2)n2.value=typed;}
+  if(keep){const e=document.getElementById(keep);if(e){e.focus({preventScroll:true});if(e.type==='text'){const n=e.value.length;try{e.setSelectionRange(n,n);}catch(_){}}}}
+  measure();
+}
+function setText(id,txt){const e=document.getElementById(id);if(e&&e.textContent!==txt)e.textContent=txt;}
+function syncSheet(){
+  if(!ui.sel)return;
+  if(ui.sel==='wx'){wxSync();return;}
+  if(ui.sel==='add'||ui.sel==='power')return;
+  if(scnKey())return;
+  /* lumières : la liste n'est reconstruite que si l'ensemble des lumières allumées change */
+  if(ui.sel==='lights'){if(lightsSig()!==lightsUi.sig)renderSheet();return;}
+  if(ui.sel==='list'){
+    devices.forEach(d=>{
+      setText('ls-'+d.id,stateText(d));
+      const b=document.getElementById('lb-'+d.id);if(b)b.style.setProperty('--c',badgeColor(d));
+      const w=document.getElementById('lsw-'+d.id);if(w)w.setAttribute('aria-checked',String(isOn(d)));
+    });
+    return;
+  }
+  if(ui.sel==='alarm'){
+    setText('alOpen',openTxt());
+    if(alarm.state==='triggered')setText('alCause',(alarm.cause?alarm.cause+' · ':'')+agoTxt(alarm.at));
+    return;
+  }
+  const cd=cfgDev();
+  if(cd){const w=document.getElementById('sw-main');if(w)w.setAttribute('aria-checked',String(isOn(cd)));return;}
+  const d=byId[ui.sel],s=d.s;
+  if(d.pending)return;
+  setText('sheetState',stateText(d));setText('lastCall',d.last||'aucun');
+  const b=document.getElementById('badge');if(b)b.style.setProperty('--c',badgeColor(d));
+  const sw=document.getElementById('sw-main');if(sw)sw.setAttribute('aria-checked',String(isOn(d)));
+  if(d.kind==='light'){
+    setText('bri-out',s.bri+' %');const r=document.getElementById('bri');if(r)r.style.setProperty('--p',((s.bri-1)/99*100).toFixed(1)+'%');
+    if(capsOf(d)==='ct'||capsOf(d)==='rgbct')setText('ct-out',(s.k||3000)+' K');
+  }
+  if(d.kind==='tv'||d.kind==='speaker'){setText('vol-out',String(s.vol));const r=document.getElementById('vol');if(r)r.style.setProperty('--p',s.vol+'%');}
+  if(d.kind==='cover'){setText('pos-out',s.pos+' %');const r=document.getElementById('pos');if(r){r.style.setProperty('--p',s.pos+'%');if(document.activeElement!==r)r.value=s.pos;}}
+  if(d.kind==='camera')camTick(d);
+  if(d.kind==='door'){setText('bigState',s.open?'Ouverte':'Fermée');setText('bigSub',since(s.since));}
+  if(d.kind==='motion'){setText('bigState',s.active?'Mouvement':'Calme');setText('bigSub','dernier passage '+agoTxt(s.since));}
+  if(d.kind==='thermo')setText('bigState',fr(air[d.zone])+' °C');
+  if(d.kind==='radiator'||d.kind==='climate'){setText('tTarget',fr(s.target)+'°');setText('tNow',fr(air[d.zone])+' °C');}
+}
+function power(){
+  let w=148;
+  lamps().forEach(d=>{if(d.s.on)w+=d.watts*d.s.bri/100;});
+  if(!byId.ecran.pending&&byId.ecran.s.on)w+=byId.ecran.watts;
+  if(byId.tv.s.on)w+=86;
+  w+=byId.arc.s.playing?11:3;w+=byId.era.s.playing?7:2;
+  if(byId.cam.s.on)w+=3;
+  return Math.round(w+Math.sin(performance.now()/2300)*3+Math.sin(performance.now()/610)*2);
+}
+function chip(id,cls,txt){const e=document.getElementById(id);e.className='chip'+(cls?' '+cls:'');setText(id+'Txt',txt);}
+function refreshChips(){
+  const n=lamps().filter(d=>d.s.on).length,st=alarm.state;
+  /* consommation : simulée en démo ; reliée à HA, moyenne réelle sur 7 jours (masquée si indisponible) */
+  const pw=!ha.cfg?power()+' W':ha.ready&&watt.data?Math.round(watt.data.w)+' W':'';
+  $('#chipPower').hidden=!pw;
+  chip('chipLights',n?'on':'',n===0?'Lumières éteintes':n===1?'1 lumière':n+' lumières');
+  chip('chipAlarm',st==='triggered'?'alert':st==='disarmed'||st==='unavailable'?'':'armed',vw<430&&(st==='armed_home'||st==='armed_away')?'Armée':AL[st]);
+  $('#chipAlarm').setAttribute('aria-label','Alarme : '+AL[st]+'. Ouvrir les réglages de l’alarme');
+  chip('chipTemp',heating(byId.rad_salon)?'on':'',fr(air.salon)+' °C');
+  if(pw)chip('chipPower','',pw);
+  wxChip();
+  scnRefresh();
+}
+function refreshUI(light){
+  refreshChips();
+  if(light)syncSheet();else renderSheet();
+}
+function openSheet(id){
+  if(addUi.placing)placeEnd();
+  ui.sel=id;sheet.classList.toggle('is-list',id==='list');sheet.classList.toggle('is-wx',id==='wx');sheet.classList.add('open');renderSheet();
+  if(narrow)dock.classList.add('away');
+  hideHint();
+}
+function closeSheet(){
+  ui.sel=null;sheet.classList.remove('open');dock.classList.remove('away');measure();
+}
+function act(name,el,live){
+  if(name==='close'){closeSheet();return;}
+  if(name==='wxTgl'){wxToggle();renderSheet();return;}
+  if(name==='open'){const o=byId[el.dataset.id];if(o&&o.pending){cfgUi.q='';openSheet('cfg:'+o.id);}else openSheet(el.dataset.id);return;}
+  if(name==='qtoggle'){toggleDev(byId[el.dataset.id]);refreshUI(true);return;}
+  if(name==='al'){setAlarm(el.dataset.v);return;}
+  if(name==='cfg'){cfgUi.q='';openSheet('cfg:'+el.dataset.id);return;}
+  if(name==='cback'){openSheet('list');return;}
+  if(name==='hretry'){if(ha.cfg){ha.tries=0;ha.authFailed=false;haConnect();$('#live').textContent='Connexion à Home Assistant…';}else showSetup('');return;}
+  if(ui.sel==='lights'){lightsAct(name,el);return;}
+  if(scnKey()){scnAct(name,el);return;}
+  if(ui.sel==='power'){if(name==='wretry'){wattFetch(true);renderSheet();}return;}
+  if(name==='addOpen'){Object.assign(addUi,{name:'',room:ROOM_ORDER[0],kind:'light',ent:'',q:''});openSheet('add');return;}
+  if(ui.sel==='add'){
+    if(name==='aent'){addUi.ent=el.dataset.e;addUi.q='';renderSheet();}
+    else if(name==='aentdel'){addUi.ent='';renderSheet();}
+    else if(name==='addPlace')placeStart();
+    return;
+  }
+  if(name==='delAsk'){delAsk(cfgDev()||byId[ui.sel]);return;}
+  const cd=cfgDev();
+  if(cd){
+    if(name==='cadd'){const e=el.dataset.e;cfgUi.q='';saveCfg(cd,{ents:MULTI[cd.kind]?cd.ents.concat([e]):[e]});cfgChanged(cd);}
+    else if(name==='cdel'){const a=cd.ents.slice();a.splice(+el.dataset.i,1);saveCfg(cd,{ents:a});cfgChanged(cd);}
+    else if(name==='ccaps'){saveCfg(cd,{caps:el.dataset.v});cfgChanged(cd);}
+    else if(name==='cinv'){saveCfg(cd,{inv:!cd.inv});cfgChanged(cd);}
+    else if(name==='creset'){const n=document.getElementById('cfgName');if(n)n.value=cd.def.name;delete devCfg[cd.id];saveCfg(cd,{});cfgUi.shown='';cfgChanged(cd);}
+    else if(name==='ctest'){toggleDev(cd);refreshUI(true);}
+    return;
+  }
+  const d=byId[ui.sel];if(!d||d.pending)return;
+  if(name==='toggle')toggleDev(d);
+  else if(name==='bri')hub('light','turn_on',d,{brightness_pct:+el.value});
+  else if(name==='rgb')hub('light','turn_on',d,{rgb_color:el.dataset.rgb.split(',').map(Number)});
+  else if(name==='hue')hub('light','turn_on',d,{rgb_color:hue2rgb(+el.value)});
+  else if(name==='ct')hub('light','turn_on',d,{color_temp_kelvin:+el.value});
+  else if(name==='src')hub('media_player','select_source',d,{source:el.dataset.v});
+  else if(name==='vol')hub('media_player','volume_set',d,{volume_level:+el.value/100});
+  else if(name==='tminus')hub('climate','set_temperature',d,{temperature:clamp(Math.round((d.s.target-0.5)*2)/2,12,26)});
+  else if(name==='tplus')hub('climate','set_temperature',d,{temperature:clamp(Math.round((d.s.target+0.5)*2)/2,12,26)});
+  else if(name==='sim')simulate(d);
+  else if(name==='pos')hub('cover','set_cover_position',d,{position:+el.value});
+  else if(name==='cop')hub('cover','open_cover',d);
+  else if(name==='ccl')hub('cover','close_cover',d);
+  else if(name==='cstop')hub('cover','stop_cover',d);
+  $('#live').textContent=d.name+' : '+stateText(d);
+  refreshUI(live);
+}
+sheet.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(b&&b.type!=='range')act(b.dataset.act,b,false);});
+sheet.addEventListener('input',e=>{
+  if(scnKey()&&e.target.id==='scnQ'){scnUi.q=e.target.value;const l=$('#scnCands');l.innerHTML=scnCandsHTML();l.scrollTop=0;return;}
+  if(scnKey()&&e.target.id==='pillName'){pillNameInput(e.target.value);return;}
+  if(ui.sel==='add'){
+    if(e.target.id==='addName')addUi.name=e.target.value;
+    else if(e.target.id==='addQ'){addUi.q=e.target.value;const l=$('#addCands');l.innerHTML=addCandsHTML();l.scrollTop=0;}
+    return;
+  }
+  const cd=cfgDev();
+  if(cd&&e.target.id==='cfgQ'){cfgUi.q=e.target.value;const l=$('#cfgCands');l.innerHTML=candsHTML(cd);l.scrollTop=0;setText('cfgN',String(cfgUi.n));return;}
+  const b=e.target.closest('[data-act]');if(b&&b.type==='range')act(b.dataset.act,b,true);
+});
+sheet.addEventListener('change',e=>{
+  if(ui.sel==='add'){
+    if(e.target.id==='addRoom')addUi.room=e.target.value;
+    /* le type change le domaine attendu : l'entité choisie n'est plus forcément valable */
+    else if(e.target.id==='addKind'){addUi.kind=e.target.value;addUi.ent='';renderSheet();}
+    return;
+  }
+  const cd=cfgDev();
+  if(cd&&e.target.id==='cfgName'){saveCfg(cd,{name:e.target.value.trim()||cd.def.name});e.target.value=cd.name;return;}
+  const d=byId[ui.sel];if(d&&d.kind==='light'&&e.target.type==='range')renderSheet();
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!hideDlg()&&ui.sel)closeSheet();});
+/* application Android : le bouton retour ferme la fenêtre ou la fiche ouverte avant de quitter */
+window.neoplexBack=function(){if(hideDlg())return true;if(ui.sel){closeSheet();return true;}return false;};
+/* le menu contextuel reste disponible dans les champs (coller le jeton) */
+window.addEventListener('contextmenu',e=>{if(!(e.target.closest&&e.target.closest('input')))e.preventDefault();});
+$('#btnList').addEventListener('click',()=>{if(ui.sel==='list')closeSheet();else openSheet('list');});
+$('#chipAlarm').addEventListener('click',()=>{if(ui.sel==='alarm')closeSheet();else openSheet('alarm');});
+$('#chipLights').addEventListener('click',()=>{if(ui.sel==='lights')closeSheet();else openSheet('lights');});
+$('#chipPower').addEventListener('click',()=>{if(ui.sel==='power')closeSheet();else{wattFetch(false);openSheet('power');}});
+$('#chipWx').addEventListener('click',()=>{if(ui.sel==='wx')closeSheet();else openSheet('wx');});
+$('#btnHome').addEventListener('click',()=>{
+  cam.az=cam.az0+((cam.az-cam.az0+PI)%(2*PI)+2*PI)%(2*PI)-PI;
+  cam.homing=true;
+});
+function setMode(m){
+  ui.mode=m;document.documentElement.dataset.mode=m;
+  const b=$('#btnDay');b.innerHTML=m==='day'?ICON.moon:ICON.sun;
+  b.setAttribute('aria-label',(m==='day'?'Passer en ambiance nuit':'Passer en ambiance jour')+' · appui long : retour au mode automatique (soleil)');
+  /* application Android : les barres système prennent la couleur du ciel */
+  try{if(window.NeoplexNative)window.NeoplexNative.setBars(m==='day'?'#bfe6dc':'#0c2430',m==='day'?'#f6dcc6':'#1d4a50',m==='day');}catch(_){}
+}
+/* jour/nuit automatique : suit sun.sun (repli sur l'heure) ; un lever/coucher annule la surcharge manuelle */
+function sunUp(){
+  const s=ha.states['sun.sun'];
+  if(s)return s.state==='above_horizon';
+  const h=new Date().getHours();return h>=7&&h<19;
+}
+function applyDayNight(){
+  const up=sunUp();
+  if(up!==ui.sun){ui.sun=up;ui.ovr=null;}
+  setMode(ui.ovr||(up?'day':'night'));
+}
+{
+  const b=$('#btnDay');let lp=null,lpDone=false;
+  const cancel=()=>{clearTimeout(lp);lp=null;};
+  b.addEventListener('pointerdown',()=>{lpDone=false;cancel();lp=setTimeout(()=>{
+    lp=null;lpDone=true;ui.ovr=null;applyDayNight();
+    $('#live').textContent='Ambiance jour/nuit : mode automatique';
+  },500);});
+  b.addEventListener('pointerup',cancel);b.addEventListener('pointerleave',cancel);b.addEventListener('pointercancel',cancel);
+  b.addEventListener('contextmenu',e=>e.preventDefault());
+  b.addEventListener('click',()=>{
+    if(lpDone){lpDone=false;return;}
+    ui.ovr=ui.mode==='day'?'night':'day';setMode(ui.ovr);
+  });
+}
+const hint=$('#hint');
+const HINT_TXT=COARSE?'Appui : allumer ou éteindre · appui long : réglages':'Clic : allumer ou éteindre · clic long : réglages';
+hint.textContent=HINT_TXT;
+/* pendant le placement d'un équipement, la consigne reste affichée */
+function hideHint(){if(!addUi.placing)hint.classList.add('gone');}
+
+/* ---------- gestes ---------- */
+const ptr=new Map();let drag=null,pinch=null;
+function pinchState(){const p=[...ptr.values()];return{d:Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y),cx:(p[0].x+p[1].x)/2,cy:(p[0].y+p[1].y)/2};}
+canvas.addEventListener('pointerdown',e=>{
+  try{canvas.setPointerCapture(e.pointerId);}catch(_){}
+  ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});cam.homing=false;
+  if(ptr.size===1)drag={x0:e.clientX,y0:e.clientY,t0:performance.now(),moved:false};
+  else{if(drag)drag.moved=true;pinch=pinchState();}
+});
+canvas.addEventListener('pointermove',e=>{
+  const p=ptr.get(e.pointerId);
+  if(!p){if(e.pointerType==='mouse')canvas.style.cursor=pick(e.clientX,e.clientY,26)?'pointer':'';return;}
+  const dx=e.clientX-p.x,dy=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;
+  if(ptr.size===1&&drag){
+    if(!drag.moved&&Math.hypot(e.clientX-drag.x0,e.clientY-drag.y0)>7){drag.moved=true;hideHint();}
+    if(drag.moved){cam.az-=dx*0.0075;cam.el=clamp(cam.el+dy*0.005,0.32,1.25);}
+  }else if(ptr.size===2){
+    const s=pinchState();
+    if(pinch){
+      cam.zoom=clamp(cam.zoom*s.d/Math.max(pinch.d,1),0.6,5);
+      cam.pan[0]=clamp(cam.pan[0]+(s.cx-pinch.cx)/cam.ppu,-7,7);
+      cam.pan[1]=clamp(cam.pan[1]-(s.cy-pinch.cy)/cam.ppu,-7,7);
+    }
+    pinch=s;hideHint();
+  }
+});
+function up(e){
+  if(!ptr.has(e.pointerId))return;
+  ptr.delete(e.pointerId);
+  if(ptr.size<2)pinch=null;
+  if(ptr.size===0){
+    if(drag&&!drag.moved&&e.type==='pointerup'&&addUi.placing)placeAt(e.clientX,e.clientY);
+    else if(drag&&!drag.moved&&e.type==='pointerup'){
+      const held=performance.now()-drag.t0,d=pick(e.clientX,e.clientY,e.pointerType==='mouse'?26:34);
+      if(d){
+        /* appui court : bascule seulement ; appui long (≥ 500 ms) : la fiche de réglages */
+        if(held>=500){if(d.pending){cfgUi.q='';openSheet('cfg:'+d.id);}else openSheet(d.id);}
+        else if(tapToggles(d)){toggleDev(d);refreshUI(true);$('#live').textContent=d.name+' : '+stateText(d);}
+        else{hint.textContent=(COARSE?'Appui long':'Clic long')+' : réglages de '+d.name;hint.classList.remove('gone');clearTimeout(hint.t);hint.t=setTimeout(()=>{if(!addUi.placing){hint.textContent=HINT_TXT;hideHint();}},2500);}
+      }else if(ui.sel&&held<650)closeSheet();
+    }
+    drag=null;
+  }
+}
+canvas.addEventListener('pointerup',up);canvas.addEventListener('pointercancel',up);
+canvas.addEventListener('wheel',e=>{e.preventDefault();cam.homing=false;cam.zoom=clamp(cam.zoom*Math.exp(-e.deltaY*0.0015),0.6,5);hideHint();},{passive:false});
+canvas.addEventListener('keydown',e=>{
+  const k=e.key;let used=true;
+  if(k==='ArrowLeft')cam.az+=0.16;else if(k==='ArrowRight')cam.az-=0.16;
+  else if(k==='ArrowUp')cam.el=clamp(cam.el+0.08,0.32,1.25);else if(k==='ArrowDown')cam.el=clamp(cam.el-0.08,0.32,1.25);
+  else if(k==='+'||k==='=')cam.zoom=clamp(cam.zoom*1.15,0.6,5);else if(k==='-')cam.zoom=clamp(cam.zoom/1.15,0.6,5);
+  else used=false;
+  if(used){e.preventDefault();cam.homing=false;}
+});
+
+/* ---------- mise en page ---------- */
+function measure(){
+  padTg=$('.top').getBoundingClientRect().bottom+8;
+  padBg=ui.sel&&narrow?Math.min(sheet.offsetHeight,vh*(ui.sel==='list'?0.58:0.74))+8:(vh-dock.getBoundingClientRect().top)+6;
+}
+function resize(){
+  vw=canvas.clientWidth||1;vh=canvas.clientHeight||1;dpr=Math.min(2,window.devicePixelRatio||1);
+  canvas.width=Math.round(vw*dpr);canvas.height=Math.round(vh*dpr);
+  narrow=vw<760;defaults();measure();
+  if(!ui.sel||!narrow)dock.classList.remove('away');
+}
+window.addEventListener('resize',resize);
+
+/* ---------- démarrage ---------- */
+function frame(now){
+  const t=now/1000,dt=Math.min(0.05,Math.max(0.001,t-lastT));lastT=t;
+  camUpdate(dt);step(dt,t);wxStep(dt,t);draw(t);placeLabels();
+  requestAnimationFrame(frame);
+}
+function start(saved){
+  saved=saved||{};
+  ui.sun=sunUp();
+  if(saved.mode&&saved.mode!==(ui.sun?'day':'night'))ui.ovr=saved.mode;   /* mode sauvegardé = surcharge initiale */
+  if(saved.v===2){
+    if(saved.states)devices.forEach(d=>{if(saved.states[d.id]&&!d.pending){Object.assign(d.s,saved.states[d.id]);if(d.kind==='motion')d.s.active=false;}});
+    if(saved.air)Object.assign(air,saved.air);
+    if(saved.alarm&&AL[saved.alarm]&&saved.alarm!=='triggered')alarm.state=saved.alarm;
+  }
+  applyDayNight();
+  dayCur=ui.mode==='day'?1:0;
+  wxInit();
+  refreshChips();
+  haConnect();
+  if(!gl)return;
+  initScene();resize();padT=padTg;padB=padBg;
+  cam.az=cam.az0;cam.el=cam.el0;
+  if(saved.cam){cam.az=saved.cam[0];cam.el=saved.cam[1];cam.zoom=saved.cam[2];}
+  else if(!RM){cam.az=cam.az0+0.75;cam.zoom=0.82;cam.homing=true;}
+  setTimeout(hideHint,9000);
+  requestAnimationFrame(frame);
+}
+const hot=window.claude&&window.claude.hot;
+if(hot&&hot.snapshot)hot.snapshot(()=>({v:2,mode:ui.mode,cam:[cam.az,cam.el,cam.zoom],alarm:alarm.state,air,states:devices.reduce((o,d)=>{o[d.id]=d.s;return o;},{})}));
+if(hot&&hot.ready)hot.ready(start);else start((hot&&hot.data)||{});
+})();
+</script>
+</body>
+</html>
